@@ -1,0 +1,24 @@
+{
+  "run_id": "fixture-crewai-001",
+  "status": "COMPLETED",
+  "started_at": "2026-03-28T10:00:56Z",
+  "finished_at": "2026-03-28T10:01:04Z",
+  "num_of_steps": 3,
+  "result": {
+    "entries": [
+      {
+        "date": "2026-03-17",
+        "title": "CrewAI 1.0 tool selection naming update",
+        "body": "CrewAI 1.0 examples and compatibility notes were updated to use tool_choice instead of function_call when integrating with modern LLM tool invocation APIs.",
+        "tags": ["deprecation", "tools", "agents"]
+      },
+      {
+        "date": "2026-03-09",
+        "title": "Sequential task execution defaults revised",
+        "body": "The framework now recommends explicit process configuration for sequential crews instead of relying on older implicit defaults in setup examples.",
+        "tags": ["best-practice", "config"]
+      }
+    ]
+  },
+  "error": null
+}

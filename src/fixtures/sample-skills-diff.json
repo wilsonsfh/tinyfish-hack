@@ -1,0 +1,40 @@
+[
+  {
+    "repo": "anthropics/skills",
+    "label": "Anthropic Official Skills",
+    "tier": "HIGH",
+    "commits": [
+      "887114f chore: update claude-api skill [auto-sync]",
+      "b0cbd3d skill-creator: drop ANTHROPIC_API_KEY requirement from description optimizer",
+      "7029232 Add claude-api skill"
+    ],
+    "changedFiles": [
+      "skills/claude-api/SKILL.md",
+      "skills/skill-creator/SKILL.md",
+      "skills/claude-api/typescript/claude-api/tool-use.md"
+    ],
+    "diffContent": "diff --git a/skills/claude-api/SKILL.md b/skills/claude-api/SKILL.md\nnew file mode 100644\n--- /dev/null\n+++ b/skills/claude-api/SKILL.md\n@@ -0,0 +1,50 @@\n+---\n+name: claude-api\n+description: Build apps with the Claude API using the Anthropic SDK\n+---\n+\n+# Claude API Skill\n+\n+## Models\n+- claude-opus-4-6 (latest, most capable)\n+- claude-sonnet-4-6 (balanced)\n+- claude-haiku-4-5-20251001 (fast, cheap)\n+\n+## Key patterns\n+- Use extended thinking for complex reasoning\n+- Prefer tool_use over raw JSON extraction\n+- Use response streaming for long outputs",
+    "pinnedSha": "3d59511",
+    "latestSha": "887114f"
+  },
+  {
+    "repo": "obra/superpowers",
+    "label": "Obra Superpowers",
+    "tier": "MEDIUM",
+    "commits": [
+      "8ea3981 Add issue templates and disable blank issues",
+      "7642153 Add PR template to filter low-quality submissions",
+      "7e51643 Merge branch 'dev' for v5.0.5 release",
+      "8a0a5ca Release v5.0.5: brainstorm server ESM fix, Windows PID fix, stop-server reliability",
+      "3128a2c fix : resolve ESM/CommonJS module conflict in brainstorming server"
+    ],
+    "changedFiles": [
+      "RELEASE-NOTES.md",
+      "skills/brainstorming/SKILL.md",
+      "skills/systematic-debugging/SKILL.md"
+    ],
+    "diffContent": "diff --git a/RELEASE-NOTES.md b/RELEASE-NOTES.md\n--- a/RELEASE-NOTES.md\n+++ b/RELEASE-NOTES.md\n@@ -1,3 +1,15 @@\n+## v5.0.5 (2026-03-20)\n+- Fix: brainstorm server ESM/CommonJS module conflict\n+- Fix: Windows PID handling for brainstorm server lifecycle\n+- Breaking: brainstorming skill now requires Node.js 20+\n+\n+## v5.0.0 (2026-03-10)\n+- Breaking: skill format v2 — frontmatter now requires 'allowed-tools' field\n+- Breaking: removed deprecated ~/.codex/ skill path support\n+- New: native Cursor plugin support\n+- New: skill triggering test harness",
+    "pinnedSha": "e4a2375",
+    "latestSha": "8ea3981"
+  }
+]

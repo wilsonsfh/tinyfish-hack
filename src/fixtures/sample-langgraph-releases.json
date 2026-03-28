@@ -1,0 +1,24 @@
+{
+  "run_id": "fixture-langgraph-001",
+  "status": "COMPLETED",
+  "started_at": "2026-03-28T10:00:39Z",
+  "finished_at": "2026-03-28T10:00:47Z",
+  "num_of_steps": 3,
+  "result": {
+    "entries": [
+      {
+        "date": "2026-03-21",
+        "title": "LangGraph v0.3.0 state schema tightening",
+        "body": "LangGraph v0.3.0 introduces stricter state typing and updated reducer expectations. Existing dict-based state graphs may require explicit schema updates.",
+        "tags": ["breaking", "state", "langgraph"]
+      },
+      {
+        "date": "2026-03-14",
+        "title": "Checkpoint configuration defaults changed",
+        "body": "Checkpointing examples were updated to require explicit configuration rather than relying on implicit defaults in longer-running graphs.",
+        "tags": ["best-practice", "config"]
+      }
+    ]
+  },
+  "error": null
+}

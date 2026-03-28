@@ -1,0 +1,30 @@
+{
+  "run_id": "fixture-cookbook-001",
+  "status": "COMPLETED",
+  "started_at": "2026-03-28T10:00:29Z",
+  "finished_at": "2026-03-28T10:00:38Z",
+  "num_of_steps": 3,
+  "result": {
+    "entries": [
+      {
+        "date": "2026-03-18",
+        "title": "Structured outputs cookbook examples updated",
+        "body": "The cookbook now recommends response_format with json_schema for strongly typed structured outputs and updated examples to avoid legacy json_object-only patterns.",
+        "tags": ["structured-outputs", "best-practice", "cookbook"]
+      },
+      {
+        "date": "2026-03-11",
+        "title": "Migration examples for tool_choice",
+        "body": "Examples that previously used function_call were updated to use tool_choice, with notes that function_call remains a deprecated alias for backward compatibility.",
+        "tags": ["tools", "migration", "deprecation"]
+      },
+      {
+        "date": "2026-03-02",
+        "title": "GPT-4o examples promoted over GPT-4 Turbo",
+        "body": "Assistant and extraction examples now use gpt-4o and gpt-4o-mini as the default recommendation instead of gpt-4-turbo.",
+        "tags": ["models", "best-practice"]
+      }
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,61 @@
+{
+  "run_id": "fixture-hn-001",
+  "status": "COMPLETED",
+  "started_at": "2026-03-28T10:00:00Z",
+  "finished_at": "2026-03-28T10:00:12Z",
+  "num_of_steps": 3,
+  "result": {
+    "stories": [
+      {
+        "title": "OpenAI deprecates gpt-4-turbo, recommends migration to gpt-4o",
+        "url": "https://platform.openai.com/docs/changelog",
+        "points": 487,
+        "comments": 234,
+        "time": "2026-03-27T14:22:00Z"
+      },
+      {
+        "title": "LangGraph v0.3 released – breaking changes to state management",
+        "url": "https://github.com/langchain-ai/langgraph/releases/tag/v0.3.0",
+        "points": 312,
+        "comments": 178,
+        "time": "2026-03-26T09:15:00Z"
+      },
+      {
+        "title": "Structured Outputs now default in OpenAI SDK 2.0",
+        "url": "https://github.com/openai/openai-python/releases/tag/v2.0.0",
+        "points": 256,
+        "comments": 89,
+        "time": "2026-03-27T11:30:00Z"
+      },
+      {
+        "title": "CrewAI 1.0: Agents now use tool_choice instead of function_call",
+        "url": "https://github.com/crewAIInc/crewAI/releases/tag/v1.0.0",
+        "points": 198,
+        "comments": 67,
+        "time": "2026-03-25T16:45:00Z"
+      },
+      {
+        "title": "Claude 4.6 (Opus/Sonnet) released with extended thinking improvements",
+        "url": "https://docs.anthropic.com/en/docs/about-claude/models",
+        "points": 534,
+        "comments": 312,
+        "time": "2026-03-24T08:00:00Z"
+      },
+      {
+        "title": "Instructor 2.0 drops Pydantic v1 support, requires v2+",
+        "url": "https://github.com/instructor-ai/instructor/releases/tag/v2.0.0",
+        "points": 145,
+        "comments": 56,
+        "time": "2026-03-26T13:20:00Z"
+      },
+      {
+        "title": "Community reports: response_format 'json_schema' replacing 'json_object' in OpenAI API",
+        "url": "https://news.ycombinator.com/item?id=99999999",
+        "points": 89,
+        "comments": 34,
+        "time": "2026-03-27T15:10:00Z"
+      }
+    ]
+  },
+  "error": null
+}

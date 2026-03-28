@@ -1,0 +1,24 @@
+{
+  "run_id": "fixture-instructor-001",
+  "status": "COMPLETED",
+  "started_at": "2026-03-28T10:00:48Z",
+  "finished_at": "2026-03-28T10:00:55Z",
+  "num_of_steps": 2,
+  "result": {
+    "entries": [
+      {
+        "date": "2026-03-19",
+        "title": "Instructor 2.0 requires Pydantic v2+",
+        "body": "Instructor 2.0 drops compatibility with Pydantic v1 and requires Pydantic v2 or newer for validation and response models.",
+        "tags": ["breaking", "pydantic", "validation"]
+      },
+      {
+        "date": "2026-03-08",
+        "title": "Structured response examples updated",
+        "body": "The maintained examples now favor schema-first structured outputs and show migration away from older free-form JSON validation flows.",
+        "tags": ["best-practice", "structured-outputs"]
+      }
+    ]
+  },
+  "error": null
+}

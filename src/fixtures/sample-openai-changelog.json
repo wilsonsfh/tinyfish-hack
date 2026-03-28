@@ -1,0 +1,36 @@
+{
+  "run_id": "fixture-changelog-001",
+  "status": "COMPLETED",
+  "started_at": "2026-03-28T10:00:15Z",
+  "finished_at": "2026-03-28T10:00:28Z",
+  "num_of_steps": 4,
+  "result": {
+    "entries": [
+      {
+        "date": "2026-03-15",
+        "title": "GPT-4 Turbo moved to legacy",
+        "body": "gpt-4-turbo and gpt-4-turbo-preview are now legacy models. We recommend migrating to gpt-4o or gpt-4o-mini for improved performance and lower costs. Legacy models will continue to work but receive no further updates.",
+        "tags": ["models", "deprecation"]
+      },
+      {
+        "date": "2026-03-10",
+        "title": "Structured Outputs GA",
+        "body": "Structured Outputs are now generally available. Use response_format: { type: 'json_schema', json_schema: {...} } for guaranteed schema-conformant JSON responses. The older response_format: { type: 'json_object' } continues to work but json_schema is now recommended.",
+        "tags": ["api", "structured-outputs"]
+      },
+      {
+        "date": "2026-03-05",
+        "title": "Function calling parameter renamed",
+        "body": "The 'function_call' parameter is now 'tool_choice' across all models. 'function_call' continues to work as an alias but is deprecated. Update your code to use 'tool_choice' for forward compatibility.",
+        "tags": ["api", "deprecation", "tools"]
+      },
+      {
+        "date": "2026-02-28",
+        "title": "GPT-4o pricing reduced",
+        "body": "GPT-4o input pricing reduced from $5/1M tokens to $2.50/1M tokens. Output pricing reduced from $15/1M to $10/1M tokens. GPT-4o-mini pricing unchanged.",
+        "tags": ["pricing", "models"]
+      }
+    ]
+  },
+  "error": null
+}
