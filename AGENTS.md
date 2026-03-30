@@ -8,6 +8,7 @@ This file replaces Claude-specific routing with Codex-native agent roles, model 
 ## How Codex Should Use This Repo
 
 - Treat [`CLAUDE.md`](./CLAUDE.md) as the product brief and source of truth for scope, architecture, and demo constraints.
+- Treat [`ARCHITECTURE.md`](./ARCHITECTURE.md) as the current-state codemap for the repo. Read it first when you need to know where logic lives today.
 - Treat [`docs/architecture-v2.md`](./docs/architecture-v2.md) as the forward-looking product framing and implementation roadmap for the post-demo multi-mode version.
 - Treat this file as the execution guide for Codex: agent delegation, ownership boundaries, verification, and repo-specific guardrails.
 - Keep work stateless and demo-safe. Prefer fixture-backed fallbacks over partial live integrations.

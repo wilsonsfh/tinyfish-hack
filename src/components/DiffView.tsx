@@ -11,6 +11,9 @@ interface DiffViewProps {
   configContent: string
   configFilename: string
   findings: Finding[]
+  mode?: "editable" | "advisory"
+  advisoryTitle?: string
+  advisoryDescription?: string
 }
 
 interface ParsedLine {
@@ -27,7 +30,7 @@ interface ParsedLine {
 function buildLineMap(findings: Finding[]): Map<number, Finding> {
   const map = new Map<number, Finding>()
   for (const f of findings) {
-    if (f.affected_line != null) {
+    if (f.affected_line != null && f.replacement_text) {
       map.set(f.affected_line, f)
     }
   }
@@ -53,10 +56,10 @@ function buildSuggestedLines(originalLines: ParsedLine[]): ParsedLine[] {
 
   for (const line of originalLines) {
     if (line.type === "removed" && line.finding) {
-      // Show the suggested change as an added line
+      // Only apply findings that have an exact literal replacement line.
       result.push({
         lineNumber: suggestedLineNumber++,
-        content: line.finding.suggested_change,
+        content: line.finding.replacement_text ?? line.finding.suggested_change,
         type: "added",
         finding: line.finding,
       })
@@ -128,6 +131,10 @@ const IMPACT_COLORS: Record<ImpactType, string> = {
   deprecation: "text-amber-400",
   additive: "text-emerald-400",
   best_practice: "text-sky-400",
+}
+
+function getImpactColor(impact: Finding["impact"]): string {
+  return IMPACT_COLORS[impact] ?? "text-slate-400"
 }
 
 // ---------------------------------------------------------------------------
@@ -439,11 +446,91 @@ function EmptyState() {
   )
 }
 
+function AdvisoryView({
+  findings,
+  title,
+  description,
+}: {
+  findings: Finding[]
+  title: string
+  description: string
+}) {
+  const targetLabel = title.toLowerCase().startsWith("repo") ? "repo target" : "scope"
+
+  return (
+    <section className="rounded-xl border border-slate-700/60 bg-slate-900 overflow-hidden">
+      <FindingsSummaryBar findings={findings} />
+      <div className="border-b border-slate-700/60 bg-slate-800/40 px-4 py-4">
+        <p className="font-mono text-xs font-semibold uppercase tracking-wider text-slate-300">
+          {title}
+        </p>
+        <p className="mt-2 max-w-3xl font-mono text-[11px] leading-6 text-slate-400">
+          {description}
+        </p>
+      </div>
+
+      <div className="space-y-3 px-4 py-4">
+        {findings.length === 0 ? (
+          <p className="font-mono text-sm text-slate-500">
+            No recommended updates yet.
+          </p>
+        ) : (
+          findings.map((finding, index) => (
+            <article
+              key={`advisory-${finding.entity}-${index}`}
+              className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-sm font-semibold text-slate-100">
+                  {finding.entity}
+                </span>
+                <ConfidenceBadge tier={finding.tier} />
+                <span className={`font-mono text-[10px] uppercase tracking-wider ${getImpactColor(finding.impact)}`}>
+                  {finding.impact.replace("_", " ")}
+                </span>
+              </div>
+              <p className="mt-3 font-mono text-[12px] leading-6 text-slate-300">
+                {finding.claim}
+              </p>
+              <p className="mt-3 rounded-lg border border-slate-700/60 bg-slate-900/60 px-3 py-3 font-mono text-[11px] leading-6 text-emerald-300">
+                {finding.suggested_change}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-slate-500">
+                {finding.affected_file && (
+                  <span>{targetLabel}: {finding.affected_file}</span>
+                )}
+                {finding.source_url && (
+                  <a
+                    href={finding.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sky-400 hover:text-sky-300"
+                  >
+                    source
+                  </a>
+                )}
+                {finding.source_date && <span>{finding.source_date}</span>}
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function DiffView({ configContent, configFilename, findings }: DiffViewProps) {
+export default function DiffView({
+  configContent,
+  configFilename,
+  findings,
+  mode = "editable",
+  advisoryTitle = "Recommended updates",
+  advisoryDescription = "This run is advisory-only because no editable config file was provided.",
+}: DiffViewProps) {
   const [mobileView, setMobileView] = useState<PaneView>("original")
   const [toast, setToast] = useState<string | null>(null)
 
@@ -455,6 +542,16 @@ export default function DiffView({ configContent, configFilename, findings }: Di
   const handleApply = useCallback(() => {
     showToast("Mock only. DriftCheck does not rewrite your file automatically.")
   }, [showToast])
+
+  if (mode === "advisory") {
+    return (
+      <AdvisoryView
+        findings={findings}
+        title={advisoryTitle}
+        description={advisoryDescription}
+      />
+    )
+  }
 
   if (!configContent) {
     return (
@@ -469,6 +566,8 @@ export default function DiffView({ configContent, configFilename, findings }: Di
   const suggestedLines = buildSuggestedLines(originalLines)
   const suggestedContent = buildSuggestedContent(suggestedLines)
 
+  const appliedFindings = findings.filter((f) => f.affected_line != null && f.replacement_text)
+  const advisoryOnlyCount = findings.length - appliedFindings.length
   const highFindings = findings.filter((f) => f.tier === "HIGH")
 
   function handleDownload() {
@@ -488,6 +587,14 @@ export default function DiffView({ configContent, configFilename, findings }: Di
     >
       {/* Summary bar */}
       <FindingsSummaryBar findings={findings} />
+
+      {advisoryOnlyCount > 0 && (
+        <div className="border-b border-slate-700/60 bg-amber-500/5 px-4 py-2.5">
+          <p className="font-mono text-[11px] leading-6 text-amber-300">
+            {advisoryOnlyCount} {advisoryOnlyCount === 1 ? "finding is" : "findings are"} advisory only and not applied to the suggested file because no safe literal replacement line was produced.
+          </p>
+        </div>
+      )}
 
       {/* Mobile toggle */}
       <MobileToggle active={mobileView} onChange={setMobileView} />
@@ -533,7 +640,7 @@ export default function DiffView({ configContent, configFilename, findings }: Di
         >
           <PaneHeader
             title="Original Config"
-            subtitle={findings.length > 0 ? `${findings.filter(f => f.affected_line != null).length} drift lines detected` : "No drift detected"}
+            subtitle={appliedFindings.length > 0 ? `${appliedFindings.length} applied line edits detected` : "No applied line edits detected"}
             icon={
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

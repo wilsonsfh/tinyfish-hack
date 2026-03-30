@@ -63,6 +63,7 @@ For each relevant finding where the user's file is affected, identify:
 - affected_file: the filename being analyzed
 - affected_line: line number if identifiable, null otherwise
 - suggested_change: what the user should change (be specific, show the before→after)
+- replacement_text: exact literal replacement text for the affected line if you can identify a safe single-line edit, null otherwise
 - provenance: array of source trail steps, each with {source, url, date, summary, tier}
 
 Return a JSON object with key "findings" containing an array.

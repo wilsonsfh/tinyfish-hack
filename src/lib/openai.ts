@@ -1,4 +1,4 @@
-import type { Entity, AuthoritativeChange, FeedbackLoopMeta, Finding } from "./types";
+import type { Entity, AuthoritativeChange, FeedbackLoopMeta, Finding, ProvenanceStep } from "./types";
 import {
   ENTITY_EXTRACTION_PROMPT,
   AUTHORITATIVE_PARSING_PROMPT,
@@ -94,12 +94,91 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-function isImpactType(value: unknown): boolean {
+function isImpactType(value: unknown): value is Finding["impact"] {
   return value === "breaking" || value === "additive" || value === "deprecation" || value === "best_practice"
 }
 
-function isConfidenceTier(value: unknown): boolean {
+function isConfidenceTier(value: unknown): value is Finding["tier"] {
   return value === "HIGH" || value === "MEDIUM" || value === "LOW" || value === "CONFLICT"
+}
+
+function normalizeString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value.trim() : fallback
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  const normalized = normalizeString(value)
+  return normalized === "" ? undefined : normalized
+}
+
+function normalizeConfidenceTier(value: unknown): Finding["tier"] {
+  return isConfidenceTier(value) ? value : "LOW"
+}
+
+function normalizeImpactType(value: unknown): Finding["impact"] {
+  return isImpactType(value) ? value : "best_practice"
+}
+
+function normalizeAffectedLine(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined
+}
+
+function normalizeProvenanceStep(step: unknown, index: number): ProvenanceStep {
+  if (!isObject(step)) {
+    return {
+      source: `Source ${index + 1}`,
+      summary: "No provenance summary was provided.",
+      tier: "LOW",
+    }
+  }
+
+  return {
+    source: normalizeString(step.source, `Source ${index + 1}`),
+    url: normalizeOptionalString(step.url),
+    date: normalizeOptionalString(step.date),
+    summary: normalizeString(step.summary, "No provenance summary was provided."),
+    tier: normalizeConfidenceTier(step.tier),
+  }
+}
+
+function normalizeFinding(finding: unknown, index: number): Finding {
+  if (!isObject(finding)) {
+    return {
+      entity: `Finding ${index + 1}`,
+      claim: "Malformed finding payload received.",
+      tier: "LOW",
+      justification: "The model returned an unexpected finding shape, so DriftCheck normalized it.",
+      source_url: "",
+      source_date: "",
+      impact: "best_practice",
+      affected_file: "unknown",
+      suggested_change: "Review the underlying source and update this file manually.",
+      provenance: [],
+    }
+  }
+
+  return {
+    entity: normalizeString(finding.entity, `Finding ${index + 1}`),
+    claim: normalizeString(finding.claim, "No claim provided."),
+    tier: normalizeConfidenceTier(finding.tier),
+    justification: normalizeString(
+      finding.justification,
+      "No justification was provided for this finding."
+    ),
+    source_url: normalizeString(finding.source_url),
+    source_date: normalizeString(finding.source_date),
+    impact: normalizeImpactType(finding.impact),
+    affected_file: normalizeString(finding.affected_file, "unknown"),
+    affected_line: normalizeAffectedLine(finding.affected_line),
+    suggested_change: normalizeString(
+      finding.suggested_change,
+      "Review the underlying source and update this file manually."
+    ),
+    replacement_text: normalizeOptionalString(finding.replacement_text),
+    provenance: Array.isArray(finding.provenance)
+      ? finding.provenance.map(normalizeProvenanceStep)
+      : [],
+  }
 }
 
 function validateEntityResponse(payload: unknown): ValidationResult {
@@ -199,11 +278,51 @@ function validateFindingResponse(payload: unknown): ValidationResult {
     if (!isImpactType(finding.impact)) {
       issues.push(`findings[${index}].impact must be one of the supported impact types.`)
     }
+    if (finding.affected_file != null && typeof finding.affected_file !== "string") {
+      issues.push(`findings[${index}].affected_file must be a string when provided.`)
+    }
+    if (
+      finding.affected_line != null &&
+      (typeof finding.affected_line !== "number" ||
+        !Number.isInteger(finding.affected_line) ||
+        finding.affected_line <= 0)
+    ) {
+      issues.push(`findings[${index}].affected_line must be a positive integer when provided.`)
+    }
     if (typeof finding.suggested_change !== "string" || finding.suggested_change.trim() === "") {
       issues.push(`findings[${index}].suggested_change must be a non-empty string.`)
     }
+    if (
+      finding.replacement_text != null &&
+      typeof finding.replacement_text !== "string"
+    ) {
+      issues.push(`findings[${index}].replacement_text must be a string when provided.`)
+    }
     if (!Array.isArray(finding.provenance)) {
       issues.push(`findings[${index}].provenance must be an array.`)
+    } else {
+      finding.provenance.forEach((step, stepIndex) => {
+        if (!isObject(step)) {
+          issues.push(`findings[${index}].provenance[${stepIndex}] must be an object.`)
+          return
+        }
+
+        if (typeof step.source !== "string" || step.source.trim() === "") {
+          issues.push(`findings[${index}].provenance[${stepIndex}].source must be a non-empty string.`)
+        }
+        if (step.url != null && typeof step.url !== "string") {
+          issues.push(`findings[${index}].provenance[${stepIndex}].url must be a string when provided.`)
+        }
+        if (step.date != null && typeof step.date !== "string") {
+          issues.push(`findings[${index}].provenance[${stepIndex}].date must be a string when provided.`)
+        }
+        if (typeof step.summary !== "string" || step.summary.trim() === "") {
+          issues.push(`findings[${index}].provenance[${stepIndex}].summary must be a non-empty string.`)
+        }
+        if (!isConfidenceTier(step.tier)) {
+          issues.push(`findings[${index}].provenance[${stepIndex}].tier must be a supported confidence tier.`)
+        }
+      })
     }
   })
 
@@ -227,6 +346,8 @@ function validateFindingQuality(payload: unknown): ValidationResult {
     const justification = typeof finding.justification === "string" ? finding.justification.trim() : ""
     const suggestedChange =
       typeof finding.suggested_change === "string" ? finding.suggested_change.trim() : ""
+    const replacementText =
+      typeof finding.replacement_text === "string" ? finding.replacement_text.trim() : ""
     const provenance = Array.isArray(finding.provenance) ? finding.provenance : []
     const sourceUrl = typeof finding.source_url === "string" ? finding.source_url.trim() : ""
     const sourceDate = typeof finding.source_date === "string" ? finding.source_date.trim() : ""
@@ -248,10 +369,23 @@ function validateFindingQuality(payload: unknown): ValidationResult {
       issues.push(`findings[${index}].suggested_change is too short to be actionable.`)
     }
 
-    if (
-      !/(->|→|replace|change|set|rename|remove|add|use|migrate|update)/i.test(suggestedChange)
-    ) {
+    const hasConcreteEditLanguage = /(->|→|replace|change|set|rename|remove|add|use|migrate|update)/i.test(
+      suggestedChange
+    )
+    const hasActionLanguage = /(review|confirm|check|inspect|align|verify|switch|prefer|move|adopt)/i.test(
+      suggestedChange
+    )
+
+    if (!hasConcreteEditLanguage && !(finding.affected_line == null && hasActionLanguage)) {
       issues.push(`findings[${index}].suggested_change should describe a concrete edit.`)
+    }
+
+    if (
+      finding.affected_line != null &&
+      replacementText === "" &&
+      !/(->|→)/.test(suggestedChange)
+    ) {
+      issues.push(`findings[${index}] should include replacement_text or a clear before→after edit when affected_line is set.`)
     }
 
     if (provenance.length === 0) {
@@ -442,15 +576,39 @@ export async function diffConfig(
     validateFindingResponse,
     "config diff"
   )
-  const qualityChecked = await runQualityFeedbackLoop<ConfigDiffResponse>(
-    prompt,
-    "Analyze the config against the changes described in the system prompt and return findings.",
-    response,
-    validateFindingQuality,
-    "config diff"
-  )
+  let qualityChecked: LLMResponse<ConfigDiffResponse>
+
+  try {
+    qualityChecked = await runQualityFeedbackLoop<ConfigDiffResponse>(
+      prompt,
+      "Analyze the config against the changes described in the system prompt and return findings.",
+      response,
+      validateFindingQuality,
+      "config diff"
+    )
+  } catch {
+    qualityChecked = {
+      payload: {
+        findings: Array.isArray(response.payload.findings)
+          ? response.payload.findings.map(normalizeFinding)
+          : [],
+      },
+      feedbackLoop: {
+        ...response.feedbackLoop,
+        status:
+          response.feedbackLoop.status === "corrected_after_schema_feedback"
+            ? "corrected_after_schema_and_quality_feedback"
+            : "corrected_after_quality_feedback",
+        quality_attempts: response.feedbackLoop.quality_attempts + 1,
+      },
+    }
+  }
+
+  const normalizedFindings = Array.isArray(qualityChecked.payload.findings)
+    ? qualityChecked.payload.findings.map(normalizeFinding)
+    : []
   return {
-    findings: Array.isArray(qualityChecked.payload.findings) ? qualityChecked.payload.findings : [],
+    findings: normalizedFindings,
     feedbackLoop: qualityChecked.feedbackLoop,
   }
 }

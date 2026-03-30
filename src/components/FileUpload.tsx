@@ -76,7 +76,7 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
     setError(null)
     try {
       const { SAMPLE_CONFIG } = await import("@/fixtures/sample-config")
-      const name = "sample-config.md"
+      const name = "sample-config.txt"
       setFilename(name)
       setPreview(SAMPLE_CONFIG.slice(0, 300))
       setPasteContent(SAMPLE_CONFIG)
@@ -89,7 +89,7 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
   }
 
   return (
-    <div className="space-y-4 font-mono">
+    <div className="space-y-5">
       {/* Drop zone */}
       <div
         onDrop={handleDrop}
@@ -97,12 +97,12 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
         className={`
-          relative flex flex-col items-center justify-center gap-3
-          rounded-lg border-2 border-dashed px-6 py-10
-          cursor-pointer select-none transition-colors duration-200
+          relative flex flex-col items-center justify-center gap-4
+          rounded-[24px] border border-dashed px-6 py-10
+          cursor-pointer select-none transition-all duration-200
           ${isDragging
-            ? "border-green-400 bg-green-400/10"
-            : "border-slate-600 bg-slate-800/60 hover:border-slate-400 hover:bg-slate-800"
+            ? "border-cyan-300/50 bg-cyan-400/8 shadow-[0_0_0_1px_rgba(103,232,249,0.18)]"
+            : "border-white/10 bg-[#0b1017] hover:border-cyan-400/28 hover:bg-[#0d131d]"
           }
         `}
       >
@@ -117,7 +117,7 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
         {/* Upload icon */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className={`h-10 w-10 transition-colors duration-200 ${isDragging ? "text-green-400" : "text-slate-500"}`}
+          className={`h-10 w-10 transition-colors duration-200 ${isDragging ? "text-cyan-300" : "text-slate-500"}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -128,9 +128,9 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
         </svg>
 
         <div className="text-center">
-          <p className="text-sm font-semibold text-slate-200">
+          <p className="text-sm font-semibold text-slate-100">
             Drop your config file here, or{" "}
-            <span className="text-green-400 underline underline-offset-2">click to browse</span>
+            <span className="text-cyan-300 underline underline-offset-2">click to browse</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
             {ACCEPTED_EXTENSIONS.join("  ")}
@@ -145,9 +145,9 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
           }}
           disabled={loadingSample}
           className="
-            mt-1 rounded border border-slate-600 bg-slate-700 px-3 py-1
+            mt-1 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5
             text-xs text-slate-300 transition-colors duration-150
-            hover:border-green-500 hover:bg-slate-600 hover:text-green-300
+            hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-100
             disabled:cursor-not-allowed disabled:opacity-50
             cursor-pointer
           "
@@ -158,14 +158,14 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
 
       {/* Uploaded file preview */}
       {filename && preview !== null && (
-        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+        <div className="rounded-[22px] border border-white/10 bg-[#0a0f16] p-4">
           <div className="mb-2 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-sm font-semibold text-green-400">{filename}</span>
+            <span className="text-sm font-semibold text-emerald-300">{filename}</span>
           </div>
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-slate-400 leading-relaxed">
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-slate-400">
             {preview}
             {preview.length >= 300 && (
               <span className="text-slate-600">{"\n\n…(truncated)"}</span>
@@ -176,22 +176,22 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
 
       {/* Error */}
       {error && (
-        <p className="rounded border border-red-700 bg-red-900/30 px-3 py-2 text-xs text-red-400">
+        <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
           {error}
         </p>
       )}
 
       {/* Divider */}
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-slate-700" />
-        <span className="text-xs text-slate-500">or paste content</span>
-        <div className="h-px flex-1 bg-slate-700" />
+        <div className="h-px flex-1 bg-white/10" />
+        <span className="text-xs uppercase tracking-[0.18em] text-slate-500">or paste content</span>
+        <div className="h-px flex-1 bg-white/10" />
       </div>
 
       {/* Paste area */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <label htmlFor="paste-filename" className="text-xs text-slate-400 shrink-0">
+          <label htmlFor="paste-filename" className="shrink-0 text-xs text-slate-400">
             Filename:
           </label>
           <input
@@ -200,9 +200,9 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
             value={pasteFilename}
             onChange={(e) => setPasteFilename(e.target.value)}
             className="
-              w-48 rounded border border-slate-700 bg-slate-800 px-2 py-1
+              w-52 rounded-full border border-white/10 bg-[#0b1017] px-3 py-1.5
               text-xs text-slate-200 placeholder-slate-600
-              focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500/30
+              focus:border-cyan-400/35 focus:outline-none focus:ring-1 focus:ring-cyan-400/20
             "
             placeholder="config.md"
           />
@@ -216,9 +216,9 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
           rows={8}
           placeholder={"# Paste your AGENTS.md, .cursorrules, or any config file here…"}
           className="
-            w-full resize-y rounded-lg border border-slate-700 bg-slate-800/80
+            w-full resize-y rounded-[22px] border border-white/10 bg-[#0b1017]
             px-4 py-3 text-xs text-slate-200 placeholder-slate-600 leading-relaxed
-            focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500/30
+            focus:border-cyan-400/35 focus:outline-none focus:ring-1 focus:ring-cyan-400/20
             transition-colors duration-150
           "
         />
@@ -227,11 +227,11 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
           type="button"
           onClick={handlePasteSubmit}
           className="
-            flex items-center gap-2 rounded border border-green-700 bg-green-900/40
-            px-4 py-2 text-xs font-semibold text-green-300
-            hover:border-green-500 hover:bg-green-900/70 hover:text-green-200
+            flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10
+            px-4 py-2 text-xs font-semibold text-emerald-200
+            hover:border-emerald-400/40 hover:bg-emerald-500/14 hover:text-emerald-100
             cursor-pointer transition-colors duration-150
-            focus:outline-none focus:ring-2 focus:ring-green-500/40
+            focus:outline-none focus:ring-2 focus:ring-emerald-400/20
           "
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">

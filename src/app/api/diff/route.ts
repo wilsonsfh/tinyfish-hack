@@ -9,6 +9,8 @@ interface DiffRequestBody {
   configFilename: string
   changes: AuthoritativeChange[]
   quickCheckContext?: string
+  baselineMode?: "uploaded_config" | "quick_check" | "repo_inventory"
+  baselineLabel?: string
 }
 
 export const POST = async (request: Request): Promise<NextResponse> => {
@@ -31,14 +33,31 @@ export const POST = async (request: Request): Promise<NextResponse> => {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const { configContent, configFilename, changes, quickCheckContext } = body
+  const {
+    configContent,
+    configFilename,
+    changes,
+    quickCheckContext,
+    baselineMode = "uploaded_config",
+    baselineLabel,
+  } = body
 
   try {
     const diffResult = await diffConfig(configContent, changes, quickCheckContext)
 
+    const fallbackAffectedFile =
+      baselineMode === "repo_inventory"
+        ? baselineLabel?.trim() || "scanned repository"
+        : baselineMode === "quick_check"
+        ? baselineLabel?.trim() || "current setup"
+        : configFilename
+
     const findings: Finding[] = diffResult.findings.map((finding) => ({
       ...finding,
-      affected_file: configFilename,
+      affected_file:
+        typeof finding.affected_file === "string" && finding.affected_file.trim() !== ""
+          ? finding.affected_file
+          : fallbackAffectedFile,
     }))
 
     return NextResponse.json({

@@ -247,11 +247,24 @@ export async function POST(request: Request) {
         send({ type: "STAGE_START", stage: "diff", timestamp: now() })
 
         try {
+          const baselineMode = configContent?.trim()
+            ? "uploaded_config"
+            : repoDiffScope
+            ? "repo_inventory"
+            : "quick_check"
+          const baselineLabel = configContent?.trim()
+            ? configFilename
+            : repoDiffScope
+            ? repoDiffScope.repoLabel
+            : quickCheckScope?.selectedSubjects.join(", ") || "current setup"
+
           const diffData = await callStage<DiffResponse>(baseUrl, "/api/diff", {
             configContent: configContent || repoInventoryContent || effectiveConfigContent,
             configFilename: configContent?.trim()
               ? configFilename
               : repoInventoryFilename || effectiveConfigFilename,
+            baselineMode,
+            baselineLabel,
             changes: allChanges,
             quickCheckContext: [
               quickCheckScope ? quickCheckScope.explanation.join("\n") : "",
