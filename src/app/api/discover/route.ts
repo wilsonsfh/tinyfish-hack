@@ -8,6 +8,7 @@ import { NOISY_SOURCES } from "@/lib/sources"
 import type { SourceMeta } from "@/lib/types"
 
 const HN_SOURCE = NOISY_SOURCES.hn
+const DISCOVERY_LIVE_TIMEOUT_MS = 20_000
 
 const HN_SCRAPE_GOAL =
   "Extract all story titles, URLs, point counts, and comment counts from the front page as a JSON array"
@@ -64,7 +65,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         url: HN_SOURCE.url,
         goal: HN_SCRAPE_GOAL,
         browser_profile: HN_SOURCE.browser_profile,
-      })
+      }, { timeoutMs: DISCOVERY_LIVE_TIMEOUT_MS })
 
       const content =
         typeof scrapeResult.result === "string"

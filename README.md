@@ -8,6 +8,8 @@ DriftCheck checks that gap. It looks at your current local state, checks live au
 
 This repo is a hackathon build for the TinyFish x OpenAI Hackathon on March 28, 2026.
 
+If you want the current implementation map, read [`ARCHITECTURE.md`](./ARCHITECTURE.md). If you want the future-facing roadmap, read [`docs/architecture-v2.md`](./docs/architecture-v2.md).
+
 ## why this exists
 
 Agentic coding is great at producing code quickly. It also creates a quiet maintenance tax.

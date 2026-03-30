@@ -35,7 +35,7 @@ const STAGE_COPY: Record<
   diff: {
     purpose: "Uses OpenAI to compare your local config or repo inventory against the authoritative change set.",
     inputLabel: "Local state and normalized authoritative changes",
-    outputLabel: "Drift findings tied to lines and suggested edits",
+    outputLabel: "Drift findings and recommended updates",
   },
   confidence: {
     purpose: "Enriches findings with provenance and validates the trust signal shown in the UI.",
@@ -176,7 +176,7 @@ export default function StageDetail({ stage }: StageDetailProps) {
   const summaryLines = summarizeOutput(stage)
 
   return (
-    <div className="space-y-4 font-mono text-sm">
+    <div className="space-y-4 text-sm">
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-base font-semibold text-slate-100">{stage.label}</h2>

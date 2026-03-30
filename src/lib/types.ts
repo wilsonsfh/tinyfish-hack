@@ -159,6 +159,8 @@ export interface Finding {
   affected_file: string
   affected_line?: number
   suggested_change: string
+  /** Exact literal replacement text for a single-line edit, if one can be identified safely. */
+  replacement_text?: string
   /** Full source trail from noisy signal → authoritative → config → fix. */
   provenance: ProvenanceStep[]
 }

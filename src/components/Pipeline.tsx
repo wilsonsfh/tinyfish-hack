@@ -25,8 +25,8 @@ function ArrowConnector({ lit }: ArrowProps) {
         className={[
           "h-px w-8 md:w-12 transition-all duration-500",
           lit
-            ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"
-            : "bg-slate-700",
+            ? "bg-cyan-300 shadow-[0_0_6px_rgba(103,232,249,0.55)]"
+            : "bg-white/10",
         ].join(" ")}
       />
       {/* Arrowhead */}
@@ -39,12 +39,12 @@ function ArrowConnector({ lit }: ArrowProps) {
       >
         <path
           d="M0 1 L7 5 L0 9"
-          stroke={lit ? "#34d399" : "#334155"}
+          stroke={lit ? "#67e8f9" : "#334155"}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           className="transition-all duration-500"
-          style={lit ? { filter: "drop-shadow(0 0 3px rgba(52,211,153,0.8))" } : {}}
+          style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
         />
       </svg>
     </div>
@@ -65,11 +65,11 @@ function MergeArrow({ lit }: { lit: boolean }) {
         y1="15"
         x2="50"
         y2="30"
-        stroke={lit ? "#34d399" : "#334155"}
+        stroke={lit ? "#67e8f9" : "#334155"}
         strokeWidth="1.5"
         strokeLinecap="round"
         className="transition-all duration-500"
-        style={lit ? { filter: "drop-shadow(0 0 3px rgba(52,211,153,0.8))" } : {}}
+        style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
       />
       {/* Bottom branch line */}
       <line
@@ -77,21 +77,21 @@ function MergeArrow({ lit }: { lit: boolean }) {
         y1="45"
         x2="50"
         y2="30"
-        stroke={lit ? "#34d399" : "#334155"}
+        stroke={lit ? "#67e8f9" : "#334155"}
         strokeWidth="1.5"
         strokeLinecap="round"
         className="transition-all duration-500"
-        style={lit ? { filter: "drop-shadow(0 0 3px rgba(52,211,153,0.8))" } : {}}
+        style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
       />
       {/* Arrowhead */}
       <path
         d="M44 26 L54 30 L44 34"
-        stroke={lit ? "#34d399" : "#334155"}
+        stroke={lit ? "#67e8f9" : "#334155"}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="transition-all duration-500"
-        style={lit ? { filter: "drop-shadow(0 0 3px rgba(52,211,153,0.8))" } : {}}
+        style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
       />
     </svg>
   )
@@ -100,7 +100,7 @@ function MergeArrow({ lit }: { lit: boolean }) {
 // ─── Vertical divider label ───────────────────────────────────────────────────
 function PhaseLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-[9px] text-slate-600 tracking-[0.2em] uppercase select-none">
+    <span className="text-[9px] uppercase tracking-[0.2em] text-slate-600 select-none">
       {children}
     </span>
   )
@@ -192,7 +192,7 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
               aria-hidden="true"
             />
           )}
-          <span className="font-mono text-xs text-slate-400 tracking-widest uppercase">
+          <span className="text-xs tracking-widest uppercase text-slate-400">
             {runningCount > 0
               ? "pipeline running"
               : completedCount === totalStages && totalStages > 0
@@ -200,7 +200,7 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
               : "pipeline idle"}
           </span>
         </div>
-        <span className="font-mono text-xs text-slate-600 tabular-nums">
+        <span className="text-xs text-slate-600 tabular-nums">
           {completedCount}/{totalStages} stages
         </span>
       </div>
@@ -213,9 +213,9 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
           "border-slate-700/60",
           "transition-all duration-300",
           runningCount > 0
-            ? "shadow-[0_0_40px_rgba(59,130,246,0.12)]"
+            ? "shadow-[0_0_40px_rgba(34,211,238,0.09)]"
             : completedCount === totalStages && totalStages > 0
-            ? "shadow-[0_0_40px_rgba(52,211,153,0.10)]"
+            ? "shadow-[0_0_40px_rgba(52,211,153,0.08)]"
             : "shadow-none",
         ].join(" ")}
       >
@@ -231,8 +231,8 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
             className={[
               "h-full transition-all duration-700 ease-out",
               completedCount === totalStages && totalStages > 0
-                ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-                : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]",
+                ? "bg-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.55)]"
+                : "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.45)]",
             ].join(" ")}
             style={{ width: `${progressPct}%` }}
             role="progressbar"
@@ -346,7 +346,7 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
             <LegendItem color="bg-red-500" label="error" />
             <LegendItem color="bg-amber-400" label="fallback" />
           </div>
-          <span className="font-mono text-[9px] text-slate-700 tracking-widest uppercase hidden sm:block">
+          <span className="text-[9px] tracking-widest uppercase text-slate-700 hidden sm:block">
             click stage to inspect
           </span>
         </div>
@@ -386,7 +386,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <span className={`w-2 h-2 rounded-full ${color}`} />
-      <span className="font-mono text-[9px] text-slate-600 tracking-wider">{label}</span>
+      <span className="text-[9px] tracking-wider text-slate-600">{label}</span>
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { ConfidenceTier } from "@/lib/types"
 
 interface ConfidenceBadgeProps {
-  tier: ConfidenceTier
+  tier: ConfidenceTier | string | undefined
   size?: "sm" | "md"
 }
 
@@ -31,8 +31,16 @@ const TIER_CONFIG: Record<
   },
 }
 
+const FALLBACK_CONFIG = {
+  label: "UNKNOWN",
+  className: "bg-slate-800 text-slate-400 border border-slate-700",
+}
+
 export function ConfidenceBadge({ tier, size = "md" }: ConfidenceBadgeProps) {
-  const cfg = TIER_CONFIG[tier]
+  const cfg =
+    typeof tier === "string" && tier in TIER_CONFIG
+      ? TIER_CONFIG[tier as ConfidenceTier]
+      : FALLBACK_CONFIG
 
   const sizeClass =
     size === "sm"
@@ -42,7 +50,7 @@ export function ConfidenceBadge({ tier, size = "md" }: ConfidenceBadgeProps) {
   return (
     <span
       className={[
-        "inline-flex items-center rounded font-mono font-bold uppercase",
+        "inline-flex items-center rounded font-bold uppercase",
         "whitespace-nowrap select-none",
         sizeClass,
         cfg.className,

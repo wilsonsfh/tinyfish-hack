@@ -1,7 +1,11 @@
 import type { TinyFishRequest, TinyFishResponse, TinyFishSSEEvent } from "./types";
 
 const TINYFISH_BASE_URL = "https://agent.tinyfish.ai/v1/automation";
-const TINYFISH_TIMEOUT_MS = 20_000;
+const TINYFISH_TIMEOUT_MS = 120_000;
+
+type TinyFishCallOptions = {
+  timeoutMs?: number
+}
 
 function getApiKey(): string {
   const key = process.env.TINYFISH_API_KEY;
@@ -20,23 +24,25 @@ function buildHeaders(apiKey: string): Record<string, string> {
   };
 }
 
-function buildTimeoutSignal(): AbortSignal {
-  return AbortSignal.timeout(TINYFISH_TIMEOUT_MS)
+function buildTimeoutSignal(timeoutMs = TINYFISH_TIMEOUT_MS): AbortSignal {
+  return AbortSignal.timeout(timeoutMs)
 }
 
 /**
  * Synchronous scrape — POSTs to /run and awaits a COMPLETED result.
  */
 export async function scrapePage(
-  request: TinyFishRequest
+  request: TinyFishRequest,
+  options: TinyFishCallOptions = {}
 ): Promise<TinyFishResponse> {
   const apiKey = getApiKey();
+  const timeoutMs = options.timeoutMs ?? TINYFISH_TIMEOUT_MS;
 
   const response = await fetch(`${TINYFISH_BASE_URL}/run`, {
     method: "POST",
     headers: buildHeaders(apiKey),
     body: JSON.stringify(request),
-    signal: buildTimeoutSignal(),
+    signal: buildTimeoutSignal(timeoutMs),
   });
 
   if (!response.ok) {
@@ -68,15 +74,17 @@ export async function scrapePage(
  * Callers use: for await (const event of scrapePageSSE(request)) { ... }
  */
 export async function* scrapePageSSE(
-  request: TinyFishRequest
+  request: TinyFishRequest,
+  options: TinyFishCallOptions = {}
 ): AsyncGenerator<TinyFishSSEEvent> {
   const apiKey = getApiKey();
+  const timeoutMs = options.timeoutMs ?? TINYFISH_TIMEOUT_MS;
 
   const response = await fetch(`${TINYFISH_BASE_URL}/run-sse`, {
     method: "POST",
     headers: buildHeaders(apiKey),
     body: JSON.stringify(request),
-    signal: buildTimeoutSignal(),
+    signal: buildTimeoutSignal(timeoutMs),
   });
 
   if (!response.ok) {
@@ -128,9 +136,10 @@ export async function* scrapePageSSE(
  * Failed requests are returned as { status: "FAILED" } entries rather than throwing.
  */
 export async function scrapeParallel(
-  requests: TinyFishRequest[]
+  requests: TinyFishRequest[],
+  options: TinyFishCallOptions = {}
 ): Promise<TinyFishResponse[]> {
-  const results = await Promise.allSettled(requests.map(scrapePage));
+  const results = await Promise.allSettled(requests.map((request) => scrapePage(request, options)));
 
   return results.map((result) => {
     if (result.status === "fulfilled") {

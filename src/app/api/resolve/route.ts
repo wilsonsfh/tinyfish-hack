@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { PARSED_AUTHORITATIVE_FIXTURES } from "@/fixtures/parsed-authoritative"
 import { scrapeParallel } from "@/lib/tinyfish"
 import { parseAuthoritative } from "@/lib/openai"
 import { summarizeFeedbackLoops } from "@/lib/feedback-loops"
@@ -29,28 +30,16 @@ const buildGoal = (entityNames: string[]): string =>
 const resultToString = (result: unknown): string =>
   typeof result === "string" ? result : JSON.stringify(result)
 
-const FIXTURE_LOADERS = {
-  openai: () => import("@/fixtures/sample-openai-changelog.json"),
-  "openai-cookbook": () => import("@/fixtures/sample-openai-cookbook.json"),
-  langgraph: () => import("@/fixtures/sample-langgraph-releases.json"),
-  instructor: () => import("@/fixtures/sample-instructor-releases.json"),
-  crewai: () => import("@/fixtures/sample-crewai-releases.json"),
-} as const
-
-type WebSourceKey = keyof typeof FIXTURE_LOADERS
+type WebSourceKey = keyof typeof PARSED_AUTHORITATIVE_FIXTURES
+const RESOLUTION_LIVE_TIMEOUT_MS = 30_000
 
 async function loadFixtureForSource(sourceKey: WebSourceKey): Promise<{
   changes: AuthoritativeChange[]
-  feedbackLoop: FeedbackLoopMeta
 }> {
-  const fixtureLoader = FIXTURE_LOADERS[sourceKey]
   const source = WEB_SOURCES[sourceKey]
-  const fixture = await fixtureLoader()
-  const content = resultToString(fixture.default.result)
-  const parsed = await parseAuthoritative(content, source.url, source.label)
+  const parsed = PARSED_AUTHORITATIVE_FIXTURES[sourceKey] ?? []
   return {
-    changes: applySourceDefaults(parsed.changes, source),
-    feedbackLoop: parsed.feedbackLoop,
+    changes: applySourceDefaults(parsed, source),
   }
 }
 
@@ -153,7 +142,10 @@ export async function POST(request: Request): Promise<NextResponse<ResolveRespon
         degraded: true,
         fallbackReasons: ["forced_fallback"],
         summary,
-        feedbackSummary: summarizeFeedbackLoops(fixtureResults.map((result) => result.feedbackLoop)),
+        feedbackSummary: summarizeFeedbackLoops(
+          [],
+          "Cached authoritative fixtures were used; no model feedback loop was needed for Stage 2."
+        ),
       })
     }
 
@@ -165,7 +157,9 @@ export async function POST(request: Request): Promise<NextResponse<ResolveRespon
     }))
 
     // Scrape all sources in parallel — failures come back as status: "FAILED"
-    const scrapeResults = await scrapeParallel(requests)
+    const scrapeResults = await scrapeParallel(requests, {
+      timeoutMs: RESOLUTION_LIVE_TIMEOUT_MS,
+    })
 
     const allChanges: AuthoritativeChange[] = []
     const allSources: SourceMeta[] = []
@@ -186,7 +180,6 @@ export async function POST(request: Request): Promise<NextResponse<ResolveRespon
             // OpenAI parse failed — fall back to fixture for this source
             const fallback = await loadFixtureForSource(sourceKey)
             allChanges.push(...fallback.changes)
-            feedbackLoops.push(fallback.feedbackLoop)
             allSources.push(
               buildSourceMeta(
                 source,
@@ -201,7 +194,6 @@ export async function POST(request: Request): Promise<NextResponse<ResolveRespon
           // TinyFish scrape failed — fall back to fixture for this source
           const fallback = await loadFixtureForSource(sourceKey)
           allChanges.push(...fallback.changes)
-          feedbackLoops.push(fallback.feedbackLoop)
           allSources.push(
             buildSourceMeta(
               source,
@@ -228,7 +220,12 @@ export async function POST(request: Request): Promise<NextResponse<ResolveRespon
       degraded: cachedSources.length > 0,
       fallbackReasons,
       summary,
-      feedbackSummary: summarizeFeedbackLoops(feedbackLoops),
+      feedbackSummary: summarizeFeedbackLoops(
+        feedbackLoops,
+        cachedSources.length > 0
+          ? "Cached authoritative fixtures were used for degraded Stage 2 sources; no model feedback loop was needed for those fallback payloads."
+          : "No model feedback loop was needed for this stage."
+      ),
     })
   } finally {
     rateLimit.lease?.release()

@@ -96,45 +96,45 @@ const STATUS_CONFIG = {
   idle: {
     icon: <IdleIcon />,
     iconColor: "text-slate-500",
-    borderColor: "border-slate-700",
-    bgColor: "bg-slate-800/60",
+    borderColor: "border-white/10",
+    bgColor: "bg-white/[0.03]",
     glowClass: "",
     labelColor: "text-slate-400",
     badgeText: "IDLE",
-    badgeBg: "bg-slate-700 text-slate-400",
+    badgeBg: "bg-white/[0.05] text-slate-400",
     ringColor: "",
   },
   running: {
     icon: <SpinnerIcon />,
     iconColor: "text-blue-400",
-    borderColor: "border-blue-500/70",
-    bgColor: "bg-blue-950/40",
-    glowClass: "shadow-[0_0_20px_rgba(59,130,246,0.35)] animate-pulse-glow",
+    borderColor: "border-cyan-400/40",
+    bgColor: "bg-cyan-400/8",
+    glowClass: "shadow-[0_0_20px_rgba(34,211,238,0.2)] animate-pulse-glow",
     labelColor: "text-blue-300",
     badgeText: "RUNNING",
-    badgeBg: "bg-blue-900/60 text-blue-300",
-    ringColor: "ring-2 ring-blue-500/30",
+    badgeBg: "bg-cyan-400/12 text-cyan-200",
+    ringColor: "ring-2 ring-cyan-400/18",
   },
   complete: {
     icon: <CheckIcon />,
     iconColor: "text-emerald-400",
-    borderColor: "border-emerald-500/60",
-    bgColor: "bg-emerald-950/30",
-    glowClass: "shadow-[0_0_16px_rgba(52,211,153,0.25)]",
+    borderColor: "border-emerald-400/35",
+    bgColor: "bg-emerald-400/8",
+    glowClass: "shadow-[0_0_16px_rgba(52,211,153,0.18)]",
     labelColor: "text-emerald-300",
     badgeText: "DONE",
-    badgeBg: "bg-emerald-900/50 text-emerald-300",
+    badgeBg: "bg-emerald-400/12 text-emerald-200",
     ringColor: "ring-1 ring-emerald-500/20",
   },
   error: {
     icon: <ErrorIcon />,
     iconColor: "text-red-400",
-    borderColor: "border-red-500/60",
-    bgColor: "bg-red-950/30",
-    glowClass: "shadow-[0_0_16px_rgba(239,68,68,0.25)]",
+    borderColor: "border-rose-400/40",
+    bgColor: "bg-rose-400/8",
+    glowClass: "shadow-[0_0_16px_rgba(244,63,94,0.16)]",
     labelColor: "text-red-300",
     badgeText: "ERROR",
-    badgeBg: "bg-red-900/50 text-red-300",
+    badgeBg: "bg-rose-400/12 text-rose-200",
     ringColor: "ring-1 ring-red-500/20",
   },
 } as const
@@ -161,7 +161,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
         "relative flex flex-col items-center gap-2 w-full",
         "group cursor-pointer focus:outline-none",
         // Focus ring for keyboard nav
-        "focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 rounded-lg",
+        "focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-lg",
       ].join(" ")}
     >
       {/* Fallback indicator dot */}
@@ -180,7 +180,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
             cfg.ringColor,
             // Active indicator: extra ring
             isActive
-              ? "ring-2 ring-offset-2 ring-offset-slate-900 ring-white/20 scale-110"
+              ? "ring-2 ring-offset-2 ring-offset-slate-950 ring-white/14 scale-105"
               : "group-hover:scale-105 group-hover:border-opacity-90",
           ].join(" ")}
         >
@@ -194,7 +194,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
       {/* Stage label */}
       <span
         className={[
-          "font-mono text-xs font-semibold tracking-wider uppercase leading-tight text-center",
+          "text-xs font-semibold tracking-wider uppercase leading-tight text-center",
           "transition-colors duration-200",
           cfg.labelColor,
           isActive ? "opacity-100" : "opacity-75 group-hover:opacity-100",
@@ -206,7 +206,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
       {/* Status badge */}
       <span
         className={[
-          "font-mono text-[9px] font-bold tracking-widest px-1.5 py-0.5 rounded",
+          "text-[9px] font-bold tracking-widest px-1.5 py-0.5 rounded",
           "uppercase transition-all duration-200",
           cfg.badgeBg,
         ].join(" ")}
@@ -216,7 +216,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
 
       {/* Duration chip — only when we have timing data */}
       {duration && stage.status !== "idle" && (
-        <span className="font-mono text-[9px] text-slate-500 tracking-wide">
+        <span className="text-[9px] tracking-wide text-slate-500">
           {duration}
         </span>
       )}
@@ -224,7 +224,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
       {/* Error message excerpt */}
       {stage.status === "error" && stage.error && (
         <span
-          className="font-mono text-[9px] text-red-400/80 max-w-[80px] text-center leading-tight truncate"
+          className="text-[9px] max-w-[80px] truncate text-center leading-tight text-red-400/80"
           title={stage.error}
         >
           {stage.error.slice(0, 32)}
@@ -235,7 +235,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
       {/* Inspect hint on hover */}
       <span
         className={[
-          "font-mono text-[9px] text-slate-600 tracking-wide",
+          "text-[9px] tracking-wide text-slate-600",
           "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
           "absolute -bottom-5 whitespace-nowrap",
         ].join(" ")}

@@ -111,6 +111,7 @@ function FileIcon() {
 // ---------------------------------------------------------------------------
 
 function formatDate(iso: string): string {
+  if (!iso) return ""
   try {
     return new Date(iso).toLocaleDateString("en-US", {
       month: "short",
@@ -122,12 +123,20 @@ function formatDate(iso: string): string {
   }
 }
 
-function ImpactBadge({ impact }: { impact: ImpactType }) {
-  const cfg = IMPACT_CONFIG[impact]
+const FALLBACK_IMPACT_CONFIG = {
+  label: "UNKNOWN",
+  className: "bg-slate-800 text-slate-400 border border-slate-700",
+}
+
+function ImpactBadge({ impact }: { impact: ImpactType | string | undefined }) {
+  const cfg =
+    typeof impact === "string" && impact in IMPACT_CONFIG
+      ? IMPACT_CONFIG[impact as ImpactType]
+      : FALLBACK_IMPACT_CONFIG
   return (
     <span
       className={[
-        "inline-flex items-center rounded font-mono font-bold uppercase",
+        "inline-flex items-center rounded font-bold uppercase",
         "whitespace-nowrap select-none px-2 py-0.5 text-[10px] tracking-widest",
         cfg.className,
       ].join(" ")}
@@ -145,7 +154,32 @@ function ImpactBadge({ impact }: { impact: ImpactType }) {
 export default function FindingCard({ finding }: FindingCardProps) {
   const [expanded, setExpanded] = useState(false)
 
-  const formattedDate = formatDate(finding.source_date)
+  const entity =
+    typeof finding.entity === "string" && finding.entity.trim() !== ""
+      ? finding.entity
+      : "Unknown finding"
+  const claim =
+    typeof finding.claim === "string" && finding.claim.trim() !== ""
+      ? finding.claim
+      : "No claim provided."
+  const justification =
+    typeof finding.justification === "string" && finding.justification.trim() !== ""
+      ? finding.justification
+      : "No justification was provided."
+  const sourceUrl = typeof finding.source_url === "string" ? finding.source_url : ""
+  const formattedDate = formatDate(typeof finding.source_date === "string" ? finding.source_date : "")
+  const affectedFile =
+    typeof finding.affected_file === "string" && finding.affected_file.trim() !== ""
+      ? finding.affected_file
+      : "unknown"
+  const suggestedChange =
+    typeof finding.replacement_text === "string" && finding.replacement_text.trim() !== ""
+      ? finding.replacement_text
+      : typeof finding.suggested_change === "string" && finding.suggested_change.trim() !== ""
+      ? finding.suggested_change
+      : "Review the related source and update this file manually."
+  const provenance = Array.isArray(finding.provenance) ? finding.provenance : []
+  const provenanceId = `provenance-${entity.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`
 
   // Border glow per impact
   const cardGlow =
@@ -160,81 +194,85 @@ export default function FindingCard({ finding }: FindingCardProps) {
   return (
     <article
       className={[
-        "flex flex-col gap-0 rounded-xl border bg-slate-900/80 backdrop-blur-sm",
+        "flex flex-col gap-0 rounded-[24px] border bg-[#0a0f16]/92 backdrop-blur-sm",
         "transition-all duration-200",
         cardGlow,
       ].join(" ")}
-      aria-label={`Finding: ${finding.entity}`}
+      aria-label={`Finding: ${entity}`}
     >
       {/* ── Header ── */}
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-3 p-5">
         {/* Top row: entity + badges */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-sm font-bold text-slate-100 tracking-tight">
-            {finding.entity}
+          <span className="text-sm font-bold tracking-tight text-slate-100">
+            {entity}
           </span>
           <ImpactBadge impact={finding.impact} />
           <ConfidenceBadge tier={finding.tier} size="sm" />
         </div>
 
         {/* Claim */}
-        <p className="font-mono text-[12px] text-slate-300 leading-relaxed">
-          {finding.claim}
+        <p className="text-[12px] leading-relaxed text-slate-300">
+          {claim}
         </p>
 
         {/* Justification */}
-        <p className="font-mono text-[11px] text-slate-500 leading-relaxed italic">
-          {finding.justification}
+        <p className="text-[11px] italic leading-relaxed text-slate-500">
+          {justification}
         </p>
 
         {/* Metadata row */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-0.5">
           {/* Source link + date */}
-          <a
-            href={finding.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={[
-              "inline-flex items-center gap-0.5",
-              "font-mono text-[11px] text-blue-400 hover:text-blue-300",
-              "transition-colors duration-150 cursor-pointer",
-              "max-w-[260px] truncate",
-            ].join(" ")}
-            title={finding.source_url}
-          >
-            {finding.source_url.replace(/^https?:\/\//, "").slice(0, 48)}
-            {finding.source_url.replace(/^https?:\/\//, "").length > 48 && "…"}
-            <ExternalLinkIcon />
-          </a>
+          {sourceUrl ? (
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={[
+                "inline-flex items-center gap-0.5",
+                "text-[11px] text-cyan-300 hover:text-cyan-200",
+                "transition-colors duration-150 cursor-pointer",
+                "max-w-[260px] truncate",
+              ].join(" ")}
+              title={sourceUrl}
+            >
+              {sourceUrl.replace(/^https?:\/\//, "").slice(0, 48)}
+              {sourceUrl.replace(/^https?:\/\//, "").length > 48 && "…"}
+              <ExternalLinkIcon />
+            </a>
+          ) : (
+            <span className="text-[11px] text-slate-600">no source URL</span>
+          )}
 
           {formattedDate && (
-            <span className="font-mono text-[11px] text-slate-600">
+            <span className="text-[11px] text-slate-600">
               {formattedDate}
             </span>
           )}
         </div>
 
         {/* Affected file + line */}
-        <div className="flex items-center gap-1 font-mono text-[11px] text-slate-500">
+        <div className="flex items-center gap-1 text-[11px] text-slate-500">
           <FileIcon />
-          <span className="text-slate-400">{finding.affected_file}</span>
+          <span className="text-slate-400">{affectedFile}</span>
           {finding.affected_line != null && (
             <span className="text-slate-600">:{finding.affected_line}</span>
           )}
         </div>
 
         {/* Suggested change — preview pill */}
-        <div className="rounded-md bg-slate-800/80 border border-slate-700/50 px-3 py-2">
-          <div className="font-mono text-[9px] text-slate-600 uppercase tracking-widest mb-1">
+        <div className="rounded-2xl border border-white/8 bg-black/30 px-3 py-2.5">
+          <div className="text-[9px] uppercase tracking-widest text-slate-600 mb-1">
             suggested change
           </div>
           <p
             className={[
-              "font-mono text-[11px] text-emerald-300 leading-relaxed",
+              "font-mono text-[11px] leading-relaxed text-emerald-300",
               expanded ? "" : "line-clamp-2",
             ].join(" ")}
           >
-            {finding.suggested_change}
+            {suggestedChange}
           </p>
         </div>
       </div>
@@ -243,13 +281,13 @@ export default function FindingCard({ finding }: FindingCardProps) {
       <button
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        aria-controls={`provenance-${finding.entity}`}
+        aria-controls={provenanceId}
         className={[
-          "flex items-center justify-between w-full px-4 py-2.5",
-          "border-t border-slate-800/80",
-          "font-mono text-[10px] text-slate-500 hover:text-slate-300",
-          "hover:bg-slate-800/40 transition-all duration-150 cursor-pointer",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+          "flex items-center justify-between w-full px-5 py-3.5",
+          "border-t border-white/8",
+          "text-[10px] text-slate-500 hover:text-slate-300",
+          "hover:bg-white/[0.03] transition-all duration-150 cursor-pointer",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/35",
           "focus-visible:ring-inset",
           expanded ? "text-slate-300" : "",
         ].join(" ")}
@@ -257,7 +295,7 @@ export default function FindingCard({ finding }: FindingCardProps) {
         <span className="uppercase tracking-widest font-bold">
           {expanded
             ? "hide provenance"
-            : `show provenance chain (${finding.provenance.length} sources)`}
+            : `show provenance chain (${provenance.length} sources)`}
         </span>
         <ChevronDownIcon open={expanded} />
       </button>
@@ -265,10 +303,10 @@ export default function FindingCard({ finding }: FindingCardProps) {
       {/* ── Provenance panel ── */}
       {expanded && (
         <div
-          id={`provenance-${finding.entity}`}
-          className="px-4 pb-4 pt-1 border-t border-slate-800/40"
+          id={provenanceId}
+          className="border-t border-white/6 px-5 pb-5 pt-2"
         >
-          <ProvenanceChain steps={finding.provenance} />
+          <ProvenanceChain steps={provenance} />
         </div>
       )}
     </article>

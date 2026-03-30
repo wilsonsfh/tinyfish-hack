@@ -17,19 +17,19 @@ const SOURCE_TYPE_LABELS: Record<SourceMeta["source_type"], string> = {
 }
 
 const SOURCE_TYPE_COLORS: Record<SourceMeta["source_type"], string> = {
-  tinyfish: "border-blue-700 bg-blue-900/40 text-blue-300",
-  git_diff: "border-purple-700 bg-purple-900/40 text-purple-300",
-  fixture: "border-slate-600 bg-slate-800 text-slate-400",
-  repo_inventory: "border-cyan-700 bg-cyan-900/40 text-cyan-300",
+  tinyfish: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200",
+  git_diff: "border-violet-400/30 bg-violet-400/10 text-violet-200",
+  fixture: "border-white/10 bg-white/[0.04] text-slate-300",
+  repo_inventory: "border-sky-400/30 bg-sky-400/10 text-sky-200",
 }
 
 function StatusDot({ status }: { status: SourceMeta["status"] }) {
   const styles =
     status === "live"
-      ? "border-green-700 bg-green-900/40 text-green-300"
+      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
       : status === "cached"
-      ? "border-yellow-700 bg-yellow-900/30 text-yellow-300"
-      : "border-rose-700 bg-rose-900/30 text-rose-300"
+      ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+      : "border-rose-400/30 bg-rose-400/10 text-rose-200"
   const dotColor =
     status === "live" ? "bg-green-400" : status === "cached" ? "bg-yellow-400" : "bg-rose-400"
 
@@ -52,7 +52,7 @@ function StatusDot({ status }: { status: SourceMeta["status"] }) {
 function SourceTypeBadge({ type }: { type: SourceMeta["source_type"] }) {
   return (
     <span
-      className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SOURCE_TYPE_COLORS[type]}`}
+      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SOURCE_TYPE_COLORS[type]}`}
     >
       {SOURCE_TYPE_LABELS[type]}
     </span>
@@ -61,7 +61,7 @@ function SourceTypeBadge({ type }: { type: SourceMeta["source_type"] }) {
 
 function StageBadge({ stage }: { stage: SourceMeta["stage"] }) {
   return (
-    <span className="rounded border border-slate-700 bg-slate-800/80 px-1.5 py-0.5 text-xs font-medium text-slate-300">
+    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-medium text-slate-300">
       {stage}
     </span>
   )
@@ -83,6 +83,10 @@ function formatTimestamp(iso: string): string {
   }
 }
 
+function safeLower(value: unknown): string {
+  return typeof value === "string" ? value.toLowerCase() : ""
+}
+
 function getResolutionChanges(output: unknown): AuthoritativeChange[] {
   if (!output || typeof output !== "object") return []
 
@@ -95,18 +99,20 @@ function sourceImpactFor(
   changes: AuthoritativeChange[],
   findings: Finding[]
 ): { changeCount: number; findingCount: number } {
-  const normalizedUrl = source.url.toLowerCase()
+  const normalizedUrl = safeLower(source.url)
 
   const changeCount = changes.filter((change) => {
-    if (change.source_url.toLowerCase() === normalizedUrl) return true
+    if (safeLower(change.source_url) === normalizedUrl) return true
     return (change.supporting_sources ?? []).some(
-      (supportingSource) => supportingSource.source_url.toLowerCase() === normalizedUrl
+      (supportingSource) => safeLower(supportingSource.source_url) === normalizedUrl
     )
   }).length
 
   const findingCount = findings.filter((finding) => {
-    if (finding.source_url.toLowerCase() === normalizedUrl) return true
-    return finding.provenance.some((step) => step.url?.toLowerCase() === normalizedUrl)
+    if (safeLower(finding.source_url) === normalizedUrl) return true
+    return (Array.isArray(finding.provenance) ? finding.provenance : []).some(
+      (step) => safeLower(step?.url) === normalizedUrl
+    )
   }).length
 
   return { changeCount, findingCount }
@@ -115,7 +121,7 @@ function sourceImpactFor(
 export default function SourcesPanel({ sources, findings, resolutionOutput }: SourcesPanelProps) {
   if (sources.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-900/60 px-6 py-10 font-mono">
+      <div className="flex items-center justify-center rounded-[24px] border border-dashed border-white/10 bg-[#0a0f16]/80 px-6 py-10">
         <p className="text-sm text-slate-500">No sources scraped yet.</p>
       </div>
     )
@@ -130,7 +136,7 @@ export default function SourcesPanel({ sources, findings, resolutionOutput }: So
     .map((source) => source.stage))]
 
   return (
-    <div className="space-y-3 font-mono">
+    <div className="space-y-3">
       {/* Summary bar */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
         <span className="font-semibold text-slate-200">{sources.length} sources</span>
@@ -154,10 +160,10 @@ export default function SourcesPanel({ sources, findings, resolutionOutput }: So
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900">
+      <div className="overflow-x-auto rounded-[24px] border border-white/10 bg-[#0a0f16]/90">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-slate-700 bg-slate-800/80">
+            <tr className="border-b border-white/8 bg-white/[0.03]">
               <th
                 scope="col"
                 className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-slate-400"
@@ -208,14 +214,14 @@ export default function SourcesPanel({ sources, findings, resolutionOutput }: So
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-white/6">
             {sources.map((source, idx) => {
               const impact = sourceImpactFor(source, resolutionChanges, findings)
 
               return (
                 <tr
                   key={`${source.url}-${idx}`}
-                  className="transition-colors duration-150 hover:bg-slate-800/50"
+                  className="transition-colors duration-150 hover:bg-white/[0.03]"
                 >
                 {/* Label */}
                 <td className="max-w-[160px] truncate px-4 py-3 font-medium text-slate-200">
