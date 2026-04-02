@@ -19,6 +19,7 @@ import FileUpload from "@/components/FileUpload"
 import FindingCard from "@/components/FindingCard"
 import DiffView from "@/components/DiffView"
 import SourcesPanel from "@/components/SourcesPanel"
+import RunSummary from "@/components/RunSummary"
 
 const CONFIDENCE_TIERS = new Set(["HIGH", "MEDIUM", "LOW", "CONFLICT"] as const)
 const IMPACT_TYPES = new Set(["breaking", "deprecation", "additive", "best_practice"] as const)
@@ -168,7 +169,8 @@ const INITIAL_STAGES: StageState[] = [
   { id: "output", label: "Output", status: "idle", usedFallback: false },
 ]
 
-type TabId = "findings" | "diff" | "sources" | "detail"
+type TabId = "summary" | "findings" | "diff" | "sources" | "detail"
+type WorkbenchMode = "quick-check" | "config-diff" | "repo-diff"
 
 const MODE_SUMMARY = [
   {
@@ -449,10 +451,7 @@ export default function Home() {
   
   const heroReveal = useScrollReveal()
   const toolsReveal = useScrollReveal()
-  const quickReveal = useScrollReveal()
-  const configReveal = useScrollReveal()
-  const repoReveal = useScrollReveal()
-  const pipelineReveal = useScrollReveal()
+  const [workbenchMode, setWorkbenchMode] = useState<WorkbenchMode>("quick-check")
   const [stages, setStages] = useState<StageState[]>(INITIAL_STAGES)
   const [activeStage, setActiveStage] = useState<StageId | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
@@ -467,13 +466,13 @@ export default function Home() {
   const [uploadedRepoLabel, setUploadedRepoLabel] = useState("")
   const [isRepoDragging, setIsRepoDragging] = useState(false)
   const [isUploadingRepo, setIsUploadingRepo] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ sent: number; total: number; fileCount: number; skipped: number } | null>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [runError, setRunError] = useState<string | null>(null)
   const [runToast, setRunToast] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>("findings")
   const abortRef = useRef<AbortController | null>(null)
   const repoInputRef = useRef<HTMLInputElement | null>(null)
-  const pipelineSectionRef = useRef<HTMLElement | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -505,6 +504,13 @@ export default function Home() {
     }
   }, [])
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      document.getElementById("workbench")?.scrollIntoView({ behavior: "smooth" })
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [])
+
   const updateStage = useCallback((id: StageId, updates: Partial<StageState>) => {
     setStages((prev) => prev.map((stage) => (stage.id === id ? { ...stage, ...updates } : stage)))
   }, [])
@@ -518,31 +524,68 @@ export default function Home() {
     const fileArray = Array.from(files)
     if (fileArray.length === 0) return
 
+    // Filter out directories that are never useful for drift analysis
+    const SKIP_DIRS = /^(node_modules|\.git|\.next|dist|build|out|\.turbo|\.cache|coverage|__pycache__|\.venv|venv)\//i
+    const SKIP_EXTS = /\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|otf|mp4|mp3|pdf|zip|gz|tar|lock|tsbuildinfo)$/i
+    const MAX_FILE_BYTES = 500_000 // skip files >500KB
+
+    const kept: File[] = []
+    let skipped = 0
+    for (const file of fileArray) {
+      const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+      if (SKIP_DIRS.test(rel) || SKIP_EXTS.test(file.name) || file.size > MAX_FILE_BYTES) {
+        skipped++
+      } else {
+        kept.push(file)
+      }
+    }
+
+    if (kept.length === 0) {
+      setRunError(`All ${fileArray.length} files were filtered out (node_modules, binaries, lock files). Try a different folder.`)
+      return
+    }
+
     setIsUploadingRepo(true)
+    setUploadProgress({ sent: 0, total: 0, fileCount: kept.length, skipped })
     setRunError(null)
 
     try {
       const formData = new FormData()
-      const firstFile = fileArray[0] as File & { webkitRelativePath?: string }
+      const firstFile = kept[0] as File & { webkitRelativePath?: string }
       const firstRelative = firstFile.webkitRelativePath || firstFile.name || "repo-upload"
       const rootName = firstRelative.split("/")[0] || "repo-upload"
       formData.append("rootName", rootName)
-
-      for (const file of fileArray) {
+      for (const file of kept) {
         formData.append("files", file)
       }
 
-      const response = await fetch("/api/repo-upload", {
-        method: "POST",
-        body: formData,
-      })
+      const payload = await new Promise<{ repoPath?: string; repoLabel?: string; uploadedFiles?: number; error?: string }>(
+        (resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open("POST", "/api/repo-upload")
 
-      const payload = (await response.json().catch(() => null)) as
-        | { repoPath?: string; repoLabel?: string; error?: string }
-        | null
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              setUploadProgress({ sent: e.loaded, total: e.total, fileCount: kept.length, skipped })
+            }
+          }
 
-      if (!response.ok || !payload?.repoPath) {
-        throw new Error(payload?.error ?? "Repo upload failed.")
+          xhr.onload = () => {
+            try {
+              resolve(JSON.parse(xhr.responseText))
+            } catch {
+              reject(new Error("Invalid response from server."))
+            }
+          }
+          xhr.onerror = () => reject(new Error("Network error during upload."))
+          xhr.ontimeout = () => reject(new Error("Upload timed out."))
+          xhr.timeout = 120_000
+          xhr.send(formData)
+        }
+      )
+
+      if (!payload.repoPath) {
+        throw new Error(payload.error ?? "Repo upload failed.")
       }
 
       setRepoPath(payload.repoPath)
@@ -552,6 +595,7 @@ export default function Home() {
       setRunError(error instanceof Error ? error.message : String(error))
     } finally {
       setIsUploadingRepo(false)
+      setUploadProgress(null)
     }
   }, [])
 
@@ -642,7 +686,7 @@ export default function Home() {
   }, [])
 
   const focusPipeline = useCallback(() => {
-    pipelineSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    document.getElementById("pipeline")?.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [])
 
   const runPipeline = useCallback(async (trigger?: "quick-check" | "config-diff" | "repo-diff") => {
@@ -765,54 +809,328 @@ export default function Home() {
   )))]
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[color:var(--app-bg)] text-[color:var(--app-fg)] transition-colors duration-300 flex flex-col items-center">
+    <main className="min-h-screen overflow-x-hidden bg-[color:var(--app-bg)] text-[color:var(--app-fg)] transition-colors duration-300 flex flex-col items-center">
       
       {/* Top Nav */}
-      <nav className="w-full max-w-[1200px] px-8 py-10 flex justify-between items-center z-10 relative">
+      <nav className="w-full max-w-[1440px] px-8 py-5 flex justify-between items-center z-10 relative">
         <div className="font-serif text-2xl font-bold tracking-tight">DriftCheck</div>
-        <div className="flex gap-8 text-sm uppercase tracking-widest text-[color:var(--app-muted)]">
-          <a href="#workbench" className="hover-underline transition-colors hover:text-black">Try it</a>
-          <a href={DOC_LINKS[0].href} target="_blank" className="hover-underline transition-colors hover:text-black">Docs</a>
-          <a href={DOC_LINKS[1].href} target="_blank" className="hover-underline transition-colors hover:text-black">System</a>
+        <div className="flex items-center gap-1 text-[11px] uppercase tracking-widest text-[color:var(--app-muted)]">
+          <a href={DOC_LINKS[0].href} target="_blank" className="transition-colors hover:text-[color:var(--app-fg)] px-3 py-1.5 rounded-full hover:bg-[color:var(--chrome-chip)]">Docs</a>
+          <a href={DOC_LINKS[1].href} target="_blank" className="transition-colors hover:text-[color:var(--app-fg)] px-3 py-1.5 rounded-full hover:bg-[color:var(--chrome-chip)]">System</a>
         </div>
       </nav>
 
-      <div className="relative w-full max-w-[1200px] px-6 pb-24 pt-16 flex flex-col items-center text-center">
+      <div className="relative w-full max-w-[1440px] px-6 pb-24 pt-16 flex flex-col items-center text-center">
         {/* HERO SECTION */}
-        <section ref={heroReveal} className="reveal-up w-full flex flex-col items-center py-20 pb-40 border-b border-[color:var(--chrome-border)]">
-          <div className="space-y-6 flex flex-col items-center">
-            <h1 className="max-w-4xl font-serif text-6xl md:text-8xl font-regular leading-[1.05] tracking-tight text-[color:var(--chrome-fg)]">
-              Minimal drift checks <br/> for the tools you use.
-            </h1>
-            <p className="max-w-2xl text-lg leading-relaxed text-[color:var(--app-muted)] mt-6">
-              Ask a plain-English question, compare a config, or scan a repo. DriftCheck pulls live source evidence, normalizes it, and tells you what changed before your workflow drifts.
-            </p>
-          </div>
-
-          <div className="mt-24 relative w-full flex justify-center">
-             <div className="relative w-72 h-72 md:w-96 md:h-96 z-10 bouncy-anchor in-view">
-               <Image src="/banana_builder.png" alt="Nano Banana Builder" fill className="object-contain drop-shadow-2xl" priority />
-             </div>
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-neutral-200 rounded-full blur-3xl opacity-50 -z-10" />
-          </div>
-
-          <div className="mt-16 flex justify-center">
-            <a href="#workbench" className="inline-flex items-center justify-center px-10 py-5 bg-[#1A1A1A] text-[#F9F9F7] rounded-full text-sm tracking-widest uppercase hover:bg-[#333333] transition-all transform hover:scale-105 active:scale-95 duration-300">
-              Run Pipeline
+        <section ref={heroReveal} className="reveal-up w-full flex flex-col items-center pt-10 pb-14 border-b border-[color:var(--chrome-border)]">
+          <h1 className="max-w-3xl font-serif text-4xl md:text-5xl font-regular leading-[1.1] tracking-tight text-[color:var(--chrome-fg)] text-center">
+            Minimal drift checks for the tools you use.
+          </h1>
+          <p className="max-w-xl text-base leading-relaxed text-[color:var(--app-muted)] mt-4 text-center">
+            Ask a plain-English question, compare a config, or scan a repo. DriftCheck checks live authoritative sources and tells you what changed.
+          </p>
+          <div className="mt-7 flex justify-center">
+            <a href="#workbench" className="inline-flex items-center justify-center px-8 py-3 bg-[#1A1A1A] text-[#F9F9F7] rounded-full text-xs tracking-widest uppercase hover:bg-[#333333] transition-colors duration-200">
+              Try Out Workbench
             </a>
           </div>
         </section>
 
+        {/* APP + PIPELINE */}
+        <section id="workbench" className="w-full py-10 scroll-mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+            {/* INPUT PANEL */}
+            <div className="lg:col-span-1 flex flex-col rounded-3xl border border-[color:var(--chrome-border)] bg-white/60 shadow-sm overflow-hidden">
+
+              {/* Mode tabs */}
+              <div className="flex border-b border-[color:var(--chrome-border)]">
+                {(["quick-check", "config-diff", "repo-diff"] as const).map((mode) => {
+                  const label = mode === "quick-check" ? "Quick Check" : mode === "config-diff" ? "Config Diff" : "Repo Diff"
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setWorkbenchMode(mode)}
+                      className={`flex-1 py-3.5 text-[10px] uppercase tracking-widest transition-colors border-b-2 -mb-px ${
+                        workbenchMode === mode
+                          ? "border-black text-black font-semibold"
+                          : "border-transparent text-neutral-400 hover:text-black"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Mode content */}
+              <div className="p-5 flex-1">
+                {workbenchMode === "quick-check" && (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs text-neutral-400">Ask about a tool, config, or skill you maintain.</p>
+                    <textarea
+                      value={quickCheckQuery}
+                      onChange={(event) => setQuickCheckQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !isRunning) {
+                          event.preventDefault()
+                          void runPipeline("quick-check")
+                        }
+                      }}
+                      rows={5}
+                      placeholder="e.g. Is my OpenAI setup up to date?"
+                      className="w-full resize-none bg-transparent border-b-2 border-neutral-200 focus:border-neutral-800 py-2 text-base outline-none transition-colors placeholder:text-neutral-400 font-serif"
+                    />
+                    {quickCheckScope && (
+                      <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                        Scoped to: {quickCheckScope.selectedSubjects.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {workbenchMode === "config-diff" && (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs text-neutral-400">Upload or paste a config, skill file, or notes.</p>
+                    <div className="bg-white border border-[color:var(--chrome-border)] rounded-2xl p-4">
+                      <FileUpload onFileContent={handleFileContent} />
+                    </div>
+                    {hasEditableBaseline && (
+                      <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
+                        Loaded: {configFilename || "config file"}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {workbenchMode === "repo-diff" && (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs text-neutral-400">Drop a local folder or paste a public GitHub URL.</p>
+                    <div
+                      onDrop={(event) => void handleRepoDrop(event)}
+                      onDragOver={(event) => { event.preventDefault(); setIsRepoDragging(true); }}
+                      onDragLeave={() => setIsRepoDragging(false)}
+                      onClick={() => !isUploadingRepo && repoInputRef.current?.click()}
+                      className={`border border-dashed rounded-2xl p-5 flex flex-col items-center justify-center text-center transition-colors ${isUploadingRepo ? "border-neutral-200 bg-neutral-50 cursor-default" : isRepoDragging ? "border-neutral-800 bg-neutral-100 cursor-pointer" : "border-neutral-300 hover:border-neutral-500 hover:bg-neutral-50 cursor-pointer"}`}
+                    >
+                      <input ref={repoInputRef} type="file" multiple {...({ webkitdirectory: "true", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} className="sr-only" onChange={(event) => void handleRepoFolderChange(event)} />
+                      {isUploadingRepo && uploadProgress ? (
+                        <div className="w-full space-y-2">
+                          <div className="flex justify-between text-[11px] text-neutral-500">
+                            <span>Uploading {uploadProgress.fileCount.toLocaleString()} files…</span>
+                            {uploadProgress.total > 0 && (
+                              <span>{Math.round((uploadProgress.sent / uploadProgress.total) * 100)}%</span>
+                            )}
+                          </div>
+                          <div className="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-neutral-800 rounded-full transition-all duration-200"
+                              style={{ width: uploadProgress.total > 0 ? `${Math.round((uploadProgress.sent / uploadProgress.total) * 100)}%` : "0%" }}
+                            />
+                          </div>
+                          {uploadProgress.total > 0 && (
+                            <p className="text-[10px] text-neutral-400">
+                              {(uploadProgress.sent / 1_048_576).toFixed(1)} / {(uploadProgress.total / 1_048_576).toFixed(1)} MB
+                            </p>
+                          )}
+                          {uploadProgress.skipped > 0 && (
+                            <p className="text-[10px] text-neutral-400">
+                              {uploadProgress.skipped.toLocaleString()} files skipped (node_modules, binaries, lock files)
+                            </p>
+                          )}
+                        </div>
+                      ) : isUploadingRepo ? (
+                        <span className="text-sm text-neutral-500 animate-pulse">Preparing upload…</span>
+                      ) : (
+                        <>
+                          <span className="text-xs text-neutral-500 mb-1">Local Folder</span>
+                          <span className="text-[10px] text-neutral-400 mb-2">(Drop or Click)</span>
+                          <span className="text-sm font-medium">{uploadedRepoLabel || "No folder loaded"}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="border border-[color:var(--chrome-border)] bg-white rounded-2xl p-4">
+                      <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">GitHub URL</p>
+                      <input
+                        value={repoUrl}
+                        onChange={(e) => {
+                          setRepoUrl(e.target.value)
+                          if (e.target.value.trim()) { setRepoPath(""); setUploadedRepoLabel(""); }
+                        }}
+                        onKeyDown={(e) => {
+                          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !isRunning) { e.preventDefault(); void runPipeline("repo-diff"); }
+                        }}
+                        placeholder="https://github.com/..."
+                        className="w-full bg-neutral-100 p-2.5 rounded-lg text-sm border border-neutral-200 focus:border-neutral-800 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    {repoDiffScope && (
+                      <div className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2">
+                        Repo ready: {repoDiffScope.repoLabel ?? "repo"}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Run button — always visible */}
+              <div className="px-5 pb-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (workbenchMode === "quick-check") void runPipeline("quick-check")
+                    else if (workbenchMode === "config-diff") void runPipeline("config-diff")
+                    else void runPipeline("repo-diff")
+                  }}
+                  disabled={
+                    isRunning ||
+                    (workbenchMode === "quick-check" && !quickCheckQuery.trim()) ||
+                    (workbenchMode === "config-diff" && !configContent.trim()) ||
+                    (workbenchMode === "repo-diff" && !repoPath.trim() && !repoUrl.trim())
+                  }
+                  className="w-full py-3.5 rounded-full bg-black text-white text-[11px] tracking-widest uppercase hover:bg-neutral-800 disabled:opacity-40 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {isRunning ? "Running..." : workbenchMode === "quick-check" ? "Run Query" : workbenchMode === "config-diff" ? "Run Config Check" : "Run Repo Scan"}
+                </button>
+              </div>
+            </div>
+
+            {/* PIPELINE + RESULTS PANEL */}
+            <div id="pipeline" className="lg:col-span-2 flex flex-col rounded-3xl border border-[color:var(--chrome-border)] bg-white shadow-sm overflow-hidden">
+
+              {/* Pipeline header */}
+              <div className="px-6 py-4 border-b border-[color:var(--chrome-border)] flex items-center justify-between">
+                <div>
+                  <h3 className="font-serif text-lg leading-none">Pipeline</h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    {isRunning ? "Processing your request..." : hasRunnableInput ? "Ready to run." : "Waiting for input."}
+                  </p>
+                </div>
+                <div className={`text-[10px] px-3 py-1 rounded-full tracking-widest uppercase ${isRunning ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-neutral-100 text-neutral-500 border border-neutral-200"}`}>
+                  {isRunning ? "Running" : "Idle"}
+                </div>
+              </div>
+
+              {/* Pipeline stages */}
+              <div className="px-5 py-4 border-b border-[color:var(--chrome-border)]">
+                <Pipeline stages={stages} activeStage={activeStage} onStageClick={setActiveStage} />
+              </div>
+
+              {/* Results tabs */}
+              <div className="flex px-2 border-b border-neutral-100 overflow-x-auto nice-scrollbar">
+                {(
+                  [
+                    { id: "summary", label: "Summary", count: null },
+                    { id: "findings", label: "Findings", count: findings.length },
+                    { id: "diff", label: "Diff", count: null },
+                    { id: "sources", label: "Sources", count: sources.length },
+                    { id: "detail", label: "Detail", count: null },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`whitespace-nowrap px-4 py-3 text-[10px] uppercase tracking-widest transition-colors border-b-2 ${
+                      activeTab === tab.id
+                        ? "border-black text-black font-medium"
+                        : "border-transparent text-neutral-400 hover:text-black"
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.count !== null && tab.count > 0 && (
+                      <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] ${activeTab === tab.id ? "bg-black text-white" : "bg-neutral-200 text-neutral-600"}`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Results content */}
+              <div className="flex-1 min-h-[300px] max-h-[460px] overflow-y-auto overflow-x-hidden p-5 nice-scrollbar">
+                {activeTab === "summary" && (
+                  <RunSummary findings={findings} sources={runSources} />
+                )}
+
+                {activeTab === "findings" && (
+                  <div className="space-y-4">
+                    {findings.length === 0 && !isRunning && (
+                      <div className="py-16 text-center text-sm text-neutral-400 bg-neutral-50 rounded-2xl border border-neutral-200 border-dashed">
+                        No findings yet. Run a check to see results here.
+                      </div>
+                    )}
+                    {findings.length === 0 && isRunning && (
+                      <div className="py-16 text-center text-sm text-neutral-400 bg-neutral-50 rounded-2xl border border-neutral-200 border-dashed animate-pulse">
+                        Analyzing drift signals...
+                      </div>
+                    )}
+                    {findings.map((finding, index) => (
+                      <FindingCard key={`${finding.entity}-${index}`} finding={finding} />
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === "diff" && (
+                  <div className="rounded-2xl overflow-hidden border border-neutral-100">
+                    <DiffView
+                      configContent={displayConfigContent}
+                      configFilename={displayConfigFilename}
+                      findings={findings}
+                      mode={diffMode}
+                      advisoryTitle={advisoryTitle}
+                      advisoryDescription={advisoryDescription}
+                    />
+                  </div>
+                )}
+
+                {activeTab === "sources" && (
+                  <SourcesPanel sources={sources} findings={findings} resolutionOutput={stages.find((s) => s.id === "resolution")?.output} />
+                )}
+
+                {activeTab === "detail" && selectedStage && (
+                  <StageDetail stage={selectedStage} />
+                )}
+                {activeTab === "detail" && !selectedStage && (
+                  <div className="py-12 px-6 flex flex-col items-center gap-3 text-center bg-neutral-50 rounded-2xl border border-neutral-200 border-dashed">
+                    <p className="text-sm font-medium text-neutral-600">Click a stage above to inspect it</p>
+                    <p className="text-xs text-neutral-400 max-w-xs leading-relaxed">
+                      This tab is a pipeline debugger. Select any stage node — Discovery, Resolution, Diff, etc. — to see its timing, data quality, degradation reasons, and raw JSON output.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Run health */}
+              {(degradedSources.length > 0 || runError) && (
+                <div className="px-5 pb-4 space-y-2">
+                  {degradedSources.length > 0 && (
+                    <div className="text-xs p-3 bg-yellow-50 text-yellow-900 border border-yellow-200 rounded-xl">
+                      {liveSources.length} live &middot; {cachedSources.length} cached &middot; {unavailableSources.length} unavailable
+                      {degradedStages.length > 0 && ` — stages: ${degradedStages.join(", ")}`}
+                    </div>
+                  )}
+                  {runError && (
+                    <div className="text-xs p-3 bg-red-50 text-red-900 border border-red-200 rounded-xl">
+                      {runError}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </section>
+
         {/* FEATURE MODES */}
-        <section ref={toolsReveal} className="reveal-up w-full flex flex-col items-center py-40 border-b border-[color:var(--chrome-border)]">
-          <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--app-muted)] mb-12">Three modes, one pipeline.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
-            {MODE_COMPARISON.map((row, i) => (
-              <div key={row.mode} className={`flex flex-col items-center text-center p-10 border border-[color:var(--chrome-border)] bg-white/40 drop-shadow-sm rounded-3xl delay-${i * 100}`}>
-                <h3 className="font-serif text-3xl font-medium mb-4">{row.mode}</h3>
-                <p className="text-sm text-[color:var(--app-muted)] leading-relaxed mb-6">{row.bestFor}</p>
-                <div className="mt-auto w-full pt-6 border-t border-[color:var(--chrome-border)] text-xs text-[color:var(--app-muted)]">
+        <section ref={toolsReveal} className="reveal-up w-full flex flex-col items-center py-24 border-t border-[color:var(--chrome-border)]">
+          <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--app-muted)] mb-10">Three modes, one pipeline.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+            {MODE_COMPARISON.map((row) => (
+              <div key={row.mode} className="flex flex-col p-7 border border-[color:var(--chrome-border)] bg-white/40 rounded-3xl">
+                <h3 className="font-serif text-xl font-medium mb-3">{row.mode}</h3>
+                <p className="text-sm text-[color:var(--app-muted)] leading-relaxed mb-4 flex-1">{row.bestFor}</p>
+                <div className="pt-4 border-t border-[color:var(--chrome-border)] text-xs text-[color:var(--app-muted)]">
                   Speed: <span className="text-black">{row.speed}</span> &nbsp;&middot;&nbsp; Input: <span className="text-black">{row.input}</span>
                 </div>
               </div>
@@ -820,256 +1138,96 @@ export default function Home() {
           </div>
         </section>
 
-        {/* WORKBENCH SECTION */}
-        <section id="workbench" className="w-full flex flex-col items-center py-32 scroll-mt-20">
-          <div className="text-center mb-20 max-w-2xl">
-            <h2 className="font-serif text-5xl font-medium mb-6">Workbench</h2>
-            <p className="text-lg text-[color:var(--app-muted)]">
-              Use whichever input matches how you work. Run the pipeline, then inspect the evidence.
-            </p>
-          </div>
+        {/* USE CASES SECTION */}
+        <section className="w-full flex flex-col items-center py-32 border-t border-[color:var(--chrome-border)]">
+          <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--app-muted)] mb-4">How developers use it</p>
+          <h2 className="font-serif text-4xl font-medium mb-16 text-center">Three flows, one tool.</h2>
 
-          <div className="w-full max-w-4xl space-y-12">
-            
-            {/* 1. Quick Check */}
-            <div ref={quickReveal} className="reveal-up w-full p-10 md:p-14 border border-[color:var(--chrome-border)] bg-white/50 rounded-3xl shadow-sm text-left relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-2 h-full bg-neutral-200 group-hover:bg-neutral-800 transition-colors" />
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-[color:var(--app-muted)] mb-2">01. Query</div>
-                  <h3 className="font-serif text-3xl">Quick Check</h3>
-                </div>
-                {quickCheckScope && <span className="bg-green-100 text-green-800 text-xs px-3 py-1 rounded-full border border-green-200">Scoped</span>}
-              </div>
-              <textarea
-                value={quickCheckQuery}
-                onChange={(event) => setQuickCheckQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !isRunning) {
-                    event.preventDefault()
-                    void runPipeline("quick-check")
-                  }
-                }}
-                rows={3}
-                placeholder="e.g. Is my OpenAI setup up to date?"
-                className="w-full resize-none bg-transparent border-b-2 border-neutral-200 focus:border-neutral-800 py-4 text-xl outline-none transition-colors placeholder:text-neutral-400 font-serif"
-              />
-              <div className="mt-8 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => void runPipeline("quick-check")}
-                  disabled={!quickCheckQuery.trim() || isRunning}
-                  className="px-8 py-3 rounded-full bg-neutral-100 border border-neutral-300 text-sm tracking-widest uppercase hover:bg-neutral-200 disabled:opacity-50 transition-colors"
-                >
-                  Run Query
-                </button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+
+            <div className="flex flex-col p-8 border border-[color:var(--chrome-border)] bg-white/40 rounded-3xl">
+              <div className="text-[10px] uppercase tracking-widest text-[color:var(--app-muted)] mb-3">Quick Check</div>
+              <h3 className="font-serif text-xl font-medium mb-5 leading-snug">&ldquo;Is my OpenAI setup up to date?&rdquo;</h3>
+              <ol className="space-y-3 text-sm text-[color:var(--app-muted)] list-none flex-1">
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">01</span>
+                  <span>Type a plain-English question about a tool, skill, or config you maintain.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">02</span>
+                  <span>Quick Check scopes the run to relevant subjects — no file upload needed.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">03</span>
+                  <span>TinyFish checks live authoritative sources. OpenAI extracts typed changes.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">04</span>
+                  <span>Get scoped findings with source provenance and confidence tiers.</span>
+                </li>
+              </ol>
+              <div className="mt-8 pt-5 border-t border-[color:var(--chrome-border)]">
+                <a href="#quick-check" className="text-[11px] uppercase tracking-widest text-[color:var(--app-muted)] hover:text-[color:var(--app-fg)] transition-colors">Try Quick Check →</a>
               </div>
             </div>
 
-            {/* 2. Config Diff */}
-            <div ref={configReveal} className="reveal-up w-full p-10 md:p-14 border border-[color:var(--chrome-border)] bg-white/50 rounded-3xl shadow-sm text-left relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-2 h-full bg-neutral-200 group-hover:bg-neutral-800 transition-colors" />
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-[color:var(--app-muted)] mb-2">02. Local state</div>
-                  <h3 className="font-serif text-3xl">Config Diff</h3>
-                </div>
-                {hasEditableBaseline && <span className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full border border-blue-200">Loaded</span>}
+            <div className="flex flex-col p-8 border border-[color:var(--chrome-border)] bg-white/40 rounded-3xl">
+              <div className="text-[10px] uppercase tracking-widest text-[color:var(--app-muted)] mb-3">Config Diff</div>
+              <h3 className="font-serif text-xl font-medium mb-5 leading-snug">&ldquo;Here&apos;s my skill file. What drifted?&rdquo;</h3>
+              <ol className="space-y-3 text-sm text-[color:var(--app-muted)] list-none flex-1">
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">01</span>
+                  <span>Paste or upload a config, skill file, or notes — anything that reflects your local setup.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">02</span>
+                  <span>DriftCheck resolves the tool references in your file against live authoritative sources.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">03</span>
+                  <span>OpenAI compares what you have against what changed. Get a split-pane diff.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">04</span>
+                  <span>Download the suggested update. DriftCheck shows the diff — you decide what to apply.</span>
+                </li>
+              </ol>
+              <div className="mt-8 pt-5 border-t border-[color:var(--chrome-border)]">
+                <a href="#config-diff" className="text-[11px] uppercase tracking-widest text-[color:var(--app-muted)] hover:text-[color:var(--app-fg)] transition-colors">Try Config Diff →</a>
               </div>
-              
-              <div className="bg-white border border-[color:var(--chrome-border)] rounded-2xl p-6">
-                <FileUpload onFileContent={handleFileContent} />
-              </div>
+            </div>
 
-              <div className="mt-8 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => void runPipeline("config-diff")}
-                  disabled={!configContent.trim() || isRunning}
-                  className="px-8 py-3 rounded-full bg-neutral-100 border border-neutral-300 text-sm tracking-widest uppercase hover:bg-neutral-200 disabled:opacity-50 transition-colors"
-                >
-                  Run Config Check
-                </button>
+            <div className="flex flex-col p-8 border border-[color:var(--chrome-border)] bg-white/40 rounded-3xl">
+              <div className="text-[10px] uppercase tracking-widest text-[color:var(--app-muted)] mb-3">Repo Diff</div>
+              <h3 className="font-serif text-xl font-medium mb-5 leading-snug">&ldquo;Check this repo for drift.&rdquo;</h3>
+              <ol className="space-y-3 text-sm text-[color:var(--app-muted)] list-none flex-1">
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">01</span>
+                  <span>Drop a local folder or paste a public GitHub repo URL.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">02</span>
+                  <span>DriftCheck inventories configs, manifests, skill references, and submodules.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">03</span>
+                  <span>Supported tools are checked against live sources via TinyFish. Git signals are supplemental context.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-mono text-[10px] text-neutral-400 pt-0.5 shrink-0">04</span>
+                  <span>Get repo-level findings and targets to inspect. Review before acting — nothing is applied silently.</span>
+                </li>
+              </ol>
+              <div className="mt-8 pt-5 border-t border-[color:var(--chrome-border)]">
+                <a href="#repo-diff" className="text-[11px] uppercase tracking-widest text-[color:var(--app-muted)] hover:text-[color:var(--app-fg)] transition-colors">Try Repo Diff →</a>
               </div>
             </div>
 
-            {/* 3. Repo Diff */}
-            <div ref={repoReveal} className="reveal-up w-full p-10 md:p-14 border border-[color:var(--chrome-border)] bg-white/50 rounded-3xl shadow-sm text-left relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-2 h-full bg-neutral-200 group-hover:bg-neutral-800 transition-colors" />
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-[color:var(--app-muted)] mb-2">03. Broad scan</div>
-                  <h3 className="font-serif text-3xl">Repo Diff</h3>
-                </div>
-                {repoDiffScope && <span className="bg-purple-100 text-purple-800 text-xs px-3 py-1 rounded-full border border-purple-200">Repo Ready</span>}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Local Folder Upload */}
-                <div
-                  onDrop={(event) => void handleRepoDrop(event)}
-                  onDragOver={(event) => { event.preventDefault(); setIsRepoDragging(true); }}
-                  onDragLeave={() => setIsRepoDragging(false)}
-                  onClick={() => repoInputRef.current?.click()}
-                  className={`border border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${isRepoDragging ? 'border-neutral-800 bg-neutral-100' : 'border-neutral-300 hover:border-neutral-500 hover:bg-neutral-50'}`}
-                >
-                  <input ref={repoInputRef} type="file" multiple {...({ webkitdirectory: "true", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} className="sr-only" onChange={(event) => void handleRepoFolderChange(event)} />
-                  <span className="text-sm tracking-widest uppercase text-neutral-500 mb-2">Local Folder</span>
-                  <span className="text-xs text-neutral-400 mb-4">(Drop or Click)</span>
-                  <span className="text-sm font-medium">
-                    {isUploadingRepo ? "Uploading..." : uploadedRepoLabel ? uploadedRepoLabel : "No folder loaded"}
-                  </span>
-                </div>
-                
-                {/* GitHub URL */}
-                <div className="border border-[color:var(--chrome-border)] bg-white rounded-2xl p-8 flex flex-col justify-center">
-                   <span className="text-sm tracking-widest uppercase text-neutral-500 mb-4">GitHub URL</span>
-                   <input
-                    value={repoUrl}
-                    onChange={(e) => {
-                      setRepoUrl(e.target.value);
-                      if (e.target.value.trim()) { setRepoPath(""); setUploadedRepoLabel(""); }
-                    }}
-                    onKeyDown={(e) => {
-                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !isRunning) { e.preventDefault(); void runPipeline("repo-diff"); }
-                    }}
-                    placeholder="https://github.com/..."
-                    className="w-full bg-neutral-100 p-3 rounded-lg text-sm border border-neutral-200 focus:border-neutral-800 focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <button
-                 type="button"
-                 onClick={() => void runPipeline("repo-diff")}
-                 disabled={(!repoPath.trim() && !repoUrl.trim()) || isRunning || isUploadingRepo}
-                 className="px-8 py-3 rounded-full bg-neutral-100 border border-neutral-300 text-sm tracking-widest uppercase hover:bg-neutral-200 disabled:opacity-50 transition-colors"
-                >
-                  Run Repo Scan
-                </button>
-              </div>
-            </div>
-            
-          </div>
-        </section>
-
-        {/* PIPELINE & FINDINGS */}
-        <section ref={pipelineReveal} className="reveal-up w-full flex flex-col items-center py-20 pb-40">
-          
-          <div className="w-full max-w-4xl rounded-3xl border border-[color:var(--chrome-border)] bg-white p-8 md:p-12 shadow-sm text-left mb-12">
-            <div className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-[color:var(--chrome-border)] pb-8">
-               <div>
-                  <h3 className="font-serif text-3xl mb-2">Pipeline Status</h3>
-                  <p className="text-[color:var(--app-muted)] text-sm">{isRunning ? "Processing your request..." : hasRunnableInput ? "Ready to run pipeline." : "Waiting for input from the workbench."}</p>
-               </div>
-               <div className={`px-4 py-2 rounded-full text-xs tracking-widest uppercase font-medium ${isRunning ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-neutral-100 text-neutral-600 border border-neutral-200'}`}>
-                 {isRunning ? "Running" : "Idle"}
-               </div>
-            </div>
-            
-            <section ref={pipelineSectionRef}>
-              <Pipeline stages={stages} activeStage={activeStage} onStageClick={setActiveStage} />
-            </section>
-          </div>
-
-          <div className="w-full max-w-4xl text-left">
-            <div className="flex gap-4 border-b border-neutral-200 pb-4 mb-8 overflow-x-auto nice-scrollbar">
-              {(
-                [
-                  { id: "findings", label: "Findings", count: findings.length },
-                  { id: "diff", label: "Diff View", count: null },
-                  { id: "sources", label: "Sources", count: sources.length },
-                  { id: "detail", label: "Stage Detail", count: null },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`whitespace-nowrap rounded-full px-6 py-2.5 text-sm uppercase tracking-widest transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-black text-white"
-                      : "bg-transparent text-neutral-500 hover:bg-neutral-100"
-                  }`}
-                >
-                  {tab.label}
-                  {tab.count !== null && tab.count > 0 && (
-                    <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] text-white ${activeTab === tab.id ? "bg-white/25 text-white" : "bg-neutral-300"}`}>
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="min-h-[400px]">
-              {activeTab === "findings" && (
-                <div className="space-y-6">
-                  {findings.length === 0 && !isRunning && (
-                    <div className="p-12 text-center text-neutral-400 bg-neutral-50 rounded-3xl border border-neutral-200 border-dashed">
-                      No findings yet. Run a check to see results here.
-                    </div>
-                  )}
-                  {findings.length === 0 && isRunning && (
-                    <div className="p-12 text-center text-neutral-400 bg-neutral-50 rounded-3xl border border-neutral-200 border-dashed animate-pulse">
-                      Analyzing drift signals...
-                    </div>
-                  )}
-                  {findings.map((finding, index) => (
-                    <FindingCard key={`${finding.entity}-${index}`} finding={finding} />
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "diff" && (
-                <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-[color:var(--chrome-border)] p-4">
-                  <DiffView
-                    configContent={displayConfigContent}
-                    configFilename={displayConfigFilename}
-                    findings={findings}
-                    mode={diffMode}
-                    advisoryTitle={advisoryTitle}
-                    advisoryDescription={advisoryDescription}
-                  />
-                </div>
-              )}
-
-              {activeTab === "sources" && (
-                <SourcesPanel sources={sources} findings={findings} resolutionOutput={stages.find((s) => s.id === "resolution")?.output} />
-              )}
-
-              {activeTab === "detail" && selectedStage && (
-                 <StageDetail stage={selectedStage} />
-              )}
-              {activeTab === "detail" && !selectedStage && (
-                <div className="p-12 text-center text-neutral-400 bg-neutral-50 rounded-3xl border border-neutral-200 border-dashed">
-                  Click a pipeline stage to inspect its details and outputs.
-                </div>
-              )}
-            </div>
-            
-            {(degradedSources.length > 0 || runError) && (
-              <div className="mt-12 w-full p-8 border border-neutral-200 bg-white rounded-3xl shadow-sm">
-                <h4 className="font-serif text-xl mb-4">Run Health</h4>
-                {degradedSources.length > 0 && (
-                  <div className="text-sm p-4 bg-yellow-50 text-yellow-900 border border-yellow-200 rounded-2xl mb-4">
-                    Some sources were degraded. ({liveSources.length} live, {cachedSources.length} cached, {unavailableSources.length} unavailable).
-                    {degradedStages.length > 0 && ` Stages affected: ${degradedStages.join(", ")}`}
-                  </div>
-                )}
-                {runError && (
-                  <div className="text-sm p-4 bg-red-50 text-red-900 border border-red-200 rounded-2xl">
-                    {runError}
-                  </div>
-                )}
-              </div>
-            )}
-            
           </div>
         </section>
 
       </div>
-      
+
       {/* Toast Notification */}
       {runToast && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 rounded-full border border-black/10 bg-black/90 px-6 py-3 text-sm text-white shadow-2xl animate-[fade-in-up_0.3s_ease-out]">

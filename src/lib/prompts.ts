@@ -61,9 +61,9 @@ For each relevant finding where the user's file is affected, identify:
 - source_date: when the change was dated (ISO)
 - impact: one of "breaking", "additive", "deprecation", "best_practice"
 - affected_file: the filename being analyzed
-- affected_line: line number if identifiable, null otherwise
+- affected_line: Count lines in the file above starting from 1. Provide the exact integer line number of the most relevant affected line. Only return null if the finding is about the overall file structure with no single focal line.
 - suggested_change: what the user should change (be specific, show the before→after)
-- replacement_text: exact literal replacement text for the affected line if you can identify a safe single-line edit, null otherwise
+- replacement_text: The complete replacement text for the affected_line. This is used to generate a visual diff — always provide this when affected_line is set. Provide the full replacement line content (not a description). Only return null if the change genuinely cannot be expressed as a single-line edit (e.g. it requires inserting or deleting multiple lines).
 - provenance: array of source trail steps, each with {source, url, date, summary, tier}
 
 Return a JSON object with key "findings" containing an array.

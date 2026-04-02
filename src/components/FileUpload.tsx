@@ -34,7 +34,7 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
     reader.onload = (e) => {
       const content = e.target?.result as string
       setFilename(file.name)
-      setPreview(content.slice(0, 300))
+      setPreview(content.slice(0, 200))
       onFileContent(content, file.name)
     }
     reader.readAsText(file)
@@ -67,7 +67,7 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
     }
     const name = pasteFilename.trim() || "pasted-config.md"
     setFilename(name)
-    setPreview(pasteContent.slice(0, 300))
+    setPreview(pasteContent.slice(0, 200))
     onFileContent(pasteContent, name)
   }
 
@@ -78,7 +78,7 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
       const { SAMPLE_CONFIG } = await import("@/fixtures/sample-config")
       const name = "sample-config.txt"
       setFilename(name)
-      setPreview(SAMPLE_CONFIG.slice(0, 300))
+      setPreview(SAMPLE_CONFIG.slice(0, 200))
       setPasteContent(SAMPLE_CONFIG)
       onFileContent(SAMPLE_CONFIG, name)
     } catch {
@@ -89,7 +89,7 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Drop zone */}
       <div
         onDrop={handleDrop}
@@ -97,12 +97,12 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
         className={`
-          relative flex flex-col items-center justify-center gap-4
-          rounded-[24px] border border-dashed px-6 py-10
+          relative flex flex-col items-center justify-center gap-2
+          rounded-2xl border border-dashed px-4 py-5
           cursor-pointer select-none transition-all duration-200
           ${isDragging
-            ? "border-cyan-300/50 bg-cyan-400/8 shadow-[0_0_0_1px_rgba(103,232,249,0.18)]"
-            : "border-white/10 bg-[#0b1017] hover:border-cyan-400/28 hover:bg-[#0d131d]"
+            ? "border-cyan-400/50 bg-cyan-50"
+            : "border-neutral-300 bg-neutral-50 hover:border-neutral-400 hover:bg-neutral-100"
           }
         `}
       >
@@ -114,10 +114,9 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
           onChange={handleFileChange}
         />
 
-        {/* Upload icon */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className={`h-10 w-10 transition-colors duration-200 ${isDragging ? "text-cyan-300" : "text-slate-500"}`}
+          className={`h-7 w-7 transition-colors duration-200 ${isDragging ? "text-cyan-500" : "text-neutral-400"}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -128,11 +127,11 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
         </svg>
 
         <div className="text-center">
-          <p className="text-sm font-semibold text-slate-100">
-            Drop your config file here, or{" "}
-            <span className="text-cyan-300 underline underline-offset-2">click to browse</span>
+          <p className="text-sm font-medium text-neutral-700">
+            Drop a file or{" "}
+            <span className="text-cyan-600 underline underline-offset-2">click to browse</span>
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-0.5 text-[10px] text-neutral-400">
             {ACCEPTED_EXTENSIONS.join("  ")}
           </p>
         </div>
@@ -145,9 +144,9 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
           }}
           disabled={loadingSample}
           className="
-            mt-1 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5
-            text-xs text-slate-300 transition-colors duration-150
-            hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-100
+            rounded-full border border-neutral-200 bg-white px-3 py-1
+            text-xs text-neutral-500 transition-colors duration-150
+            hover:border-neutral-300 hover:text-neutral-700
             disabled:cursor-not-allowed disabled:opacity-50
             cursor-pointer
           "
@@ -158,17 +157,17 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
 
       {/* Uploaded file preview */}
       {filename && preview !== null && (
-        <div className="rounded-[22px] border border-white/10 bg-[#0a0f16] p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <div className="mb-1.5 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-sm font-semibold text-emerald-300">{filename}</span>
+            <span className="text-xs font-semibold text-emerald-700">{filename}</span>
           </div>
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-slate-400">
+          <pre className="overflow-hidden whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed text-emerald-800/70 max-h-16">
             {preview}
-            {preview.length >= 300 && (
-              <span className="text-slate-600">{"\n\n…(truncated)"}</span>
+            {preview.length >= 200 && (
+              <span className="text-emerald-600/50">{"\n…"}</span>
             )}
           </pre>
         </div>
@@ -176,22 +175,22 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
 
       {/* Error */}
       {error && (
-        <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
           {error}
         </p>
       )}
 
       {/* Divider */}
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/10" />
-        <span className="text-xs uppercase tracking-[0.18em] text-slate-500">or paste content</span>
-        <div className="h-px flex-1 bg-white/10" />
+        <div className="h-px flex-1 bg-neutral-200" />
+        <span className="text-[10px] uppercase tracking-[0.18em] text-neutral-400">or paste</span>
+        <div className="h-px flex-1 bg-neutral-200" />
       </div>
 
       {/* Paste area */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <label htmlFor="paste-filename" className="shrink-0 text-xs text-slate-400">
+          <label htmlFor="paste-filename" className="shrink-0 text-[10px] uppercase tracking-widest text-neutral-400">
             Filename:
           </label>
           <input
@@ -200,9 +199,9 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
             value={pasteFilename}
             onChange={(e) => setPasteFilename(e.target.value)}
             className="
-              w-52 rounded-full border border-white/10 bg-[#0b1017] px-3 py-1.5
-              text-xs text-slate-200 placeholder-slate-600
-              focus:border-cyan-400/35 focus:outline-none focus:ring-1 focus:ring-cyan-400/20
+              flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5
+              text-xs text-neutral-700 placeholder-neutral-400
+              focus:border-neutral-400 focus:outline-none
             "
             placeholder="config.md"
           />
@@ -213,12 +212,12 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
           aria-label="Paste config content"
           value={pasteContent}
           onChange={(e) => setPasteContent(e.target.value)}
-          rows={8}
-          placeholder={"# Paste your AGENTS.md, .cursorrules, or any config file here…"}
+          rows={4}
+          placeholder={"Paste AGENTS.md, .cursorrules, or any config here…"}
           className="
-            w-full resize-y rounded-[22px] border border-white/10 bg-[#0b1017]
-            px-4 py-3 text-xs text-slate-200 placeholder-slate-600 leading-relaxed
-            focus:border-cyan-400/35 focus:outline-none focus:ring-1 focus:ring-cyan-400/20
+            w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50
+            px-3 py-2.5 text-xs text-neutral-700 placeholder-neutral-400 leading-relaxed
+            focus:border-neutral-400 focus:outline-none
             transition-colors duration-150
           "
         />
@@ -227,14 +226,14 @@ export default function FileUpload({ onFileContent }: FileUploadProps) {
           type="button"
           onClick={handlePasteSubmit}
           className="
-            flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10
-            px-4 py-2 text-xs font-semibold text-emerald-200
-            hover:border-emerald-400/40 hover:bg-emerald-500/14 hover:text-emerald-100
+            flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50
+            px-3 py-1.5 text-xs font-medium text-emerald-700
+            hover:border-emerald-300 hover:bg-emerald-100
             cursor-pointer transition-colors duration-150
             focus:outline-none focus:ring-2 focus:ring-emerald-400/20
           "
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
           Use pasted content

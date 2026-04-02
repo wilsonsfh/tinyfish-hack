@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { feedbackLoopStatusLabel } from "@/lib/feedback-loops"
 import { fallbackReasonLabel } from "@/lib/fallbacks"
 import type { Finding, StageId, StageState } from "@/lib/types"
@@ -50,10 +50,10 @@ const STAGE_COPY: Record<
 }
 
 const STATUS_STYLES: Record<StageState["status"], string> = {
-  idle: "border-slate-600 bg-slate-800 text-slate-400",
-  running: "border-blue-600 bg-blue-900/40 text-blue-300",
-  complete: "border-green-700 bg-green-900/40 text-green-300",
-  error: "border-red-700 bg-red-900/40 text-red-300",
+  idle: "border-neutral-200 bg-neutral-100 text-neutral-500",
+  running: "border-blue-200 bg-blue-50 text-blue-700",
+  complete: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  error: "border-red-200 bg-red-50 text-red-700",
 }
 
 function formatTimestamp(iso?: string): string {
@@ -163,6 +163,14 @@ function summarizeOutput(stage: StageState): string[] {
 
 export default function StageDetail({ stage }: StageDetailProps) {
   const [isOutputExpanded, setIsOutputExpanded] = useState(true)
+  const [copied, setCopied] = useState(false)
+
+  const copyOutput = useCallback((json: string) => {
+    void navigator.clipboard.writeText(json).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [])
 
   const duration = durationMs(stage.startedAt, stage.completedAt)
   const hasOutput = stage.output !== undefined && stage.output !== null
@@ -177,141 +185,68 @@ export default function StageDetail({ stage }: StageDetailProps) {
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Header row */}
+      {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-base font-semibold text-slate-100">{stage.label}</h2>
-
+        <h2 className="text-base font-semibold text-neutral-900">{stage.label}</h2>
         <StatusBadge status={stage.status} />
-
         {stage.status === "running" && <RunningSpinner />}
-
         {stage.usedFallback && (
-          <span className="rounded border border-yellow-700 bg-yellow-900/30 px-2 py-0.5 text-xs font-medium text-yellow-300">
-            [degraded]
+          <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+            degraded
           </span>
         )}
       </div>
 
-      {stage.usedFallback && (
-        <div className="rounded-lg border border-amber-700 bg-amber-950/20 px-4 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
-            Degradation
+      {/* ── What it does ── */}
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+          What this stage does
+        </p>
+        <p className="text-xs leading-relaxed text-neutral-600">{copy.purpose}</p>
+      </div>
+
+      {/* ── I/O ── */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+            Input
           </p>
-
-          <div className="space-y-2 text-xs text-amber-100/90">
-            <p>This stage completed with non-live source data or excluded sources.</p>
-
-            {fallbackReasons.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {fallbackReasons.map((reason) => (
-                  <span
-                    key={reason}
-                    className="rounded border border-amber-700 bg-amber-900/40 px-2 py-0.5 text-[11px] text-amber-200"
-                  >
-                    {fallbackReasonLabel(reason)}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {degradedSources.length > 0 && (
-              <div className="rounded border border-amber-900/70 bg-slate-950/40 px-3 py-2">
-                <p className="mb-2 text-[11px] uppercase tracking-wider text-amber-300/80">
-                  Affected sources
-                </p>
-                <div className="space-y-2">
-                  {degradedSources.map((source, index) => (
-                    <div key={`${source.url}-${index}`} className="space-y-1">
-                      <p className="text-slate-100">{source.label}</p>
-                      <p className="text-slate-400">
-                        {source.fallback_reason ? fallbackReasonLabel(source.fallback_reason) : "cached fallback"}
-                      </p>
-                      {source.fallback_detail && (
-                        <p className="whitespace-pre-wrap break-words text-slate-500">
-                          {source.fallback_detail}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <p className="text-xs leading-relaxed text-neutral-600">{copy.inputLabel}</p>
         </div>
-      )}
-
-      {/* Stage ID pill */}
-      <p className="text-xs text-slate-500">
-        id:{" "}
-        <span className="font-semibold text-slate-400">{stage.id}</span>
-      </p>
-
-      {feedbackSummary && (
-        <div className="rounded-lg border border-sky-800/70 bg-sky-950/20 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-sky-300">
-              Feedback Loop
-            </p>
-            <span className="rounded border border-sky-700/70 bg-sky-900/30 px-2 py-0.5 text-[11px] text-sky-200">
-              {feedbackLoopStatusLabel(feedbackSummary.status)}
-            </span>
-          </div>
-          <div className="mt-2 space-y-1 text-xs text-sky-100/85">
-            {feedbackSummary.details.map((detail) => (
-              <p key={detail}>{detail}</p>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            What This Stage Does
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+            Output
           </p>
-          <p className="text-xs leading-relaxed text-slate-300">{copy.purpose}</p>
-        </div>
-        <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Expected Input
-          </p>
-          <p className="text-xs leading-relaxed text-slate-300">{copy.inputLabel}</p>
-        </div>
-        <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Expected Output
-          </p>
-          <p className="text-xs leading-relaxed text-slate-300">{copy.outputLabel}</p>
+          <p className="text-xs leading-relaxed text-neutral-600">{copy.outputLabel}</p>
         </div>
       </div>
 
-      {/* Timing block */}
-      <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Timing
+      {/* ── Performance ── */}
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+          Performance
         </p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-xs">
-          <dt className="text-slate-500">Started</dt>
-          <dd className="text-slate-300">{formatTimestamp(stage.startedAt)}</dd>
-
-          <dt className="text-slate-500">Completed</dt>
-          <dd className="text-slate-300">{formatTimestamp(stage.completedAt)}</dd>
-
+          <dt className="text-neutral-400">Started</dt>
+          <dd className="text-neutral-700">{formatTimestamp(stage.startedAt)}</dd>
+          <dt className="text-neutral-400">Completed</dt>
+          <dd className="text-neutral-700">{formatTimestamp(stage.completedAt)}</dd>
           {duration && (
             <>
-              <dt className="text-slate-500">Duration</dt>
-              <dd className="text-green-400 font-semibold">{duration}</dd>
+              <dt className="text-neutral-400">Duration</dt>
+              <dd className="text-emerald-700 font-semibold">{duration}</dd>
             </>
           )}
         </dl>
       </div>
 
+      {/* ── Data quality ── */}
       {summaryLines.length > 0 && (
-        <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Run Summary
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+            Data quality
           </p>
-          <div className="space-y-1 text-xs text-slate-300">
+          <div className="space-y-1 text-xs text-neutral-600">
             {summaryLines.map((line) => (
               <p key={line}>{line}</p>
             ))}
@@ -319,61 +254,131 @@ export default function StageDetail({ stage }: StageDetailProps) {
         </div>
       )}
 
-      {/* Error block */}
+      {/* ── Feedback loop ── */}
+      {feedbackSummary && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-sky-600">
+              Feedback Loop
+            </p>
+            <span className="rounded border border-sky-200 bg-sky-100 px-2 py-0.5 text-[11px] text-sky-700">
+              {feedbackLoopStatusLabel(feedbackSummary.status)}
+            </span>
+          </div>
+          <div className="space-y-1 text-xs text-sky-800">
+            {feedbackSummary.details.map((detail) => (
+              <p key={detail}>{detail}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Degradation ── */}
+      {stage.usedFallback && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-amber-600">
+            Degradation
+          </p>
+          <div className="space-y-2 text-xs text-amber-800">
+            <p>This stage completed with non-live source data or excluded sources.</p>
+            {fallbackReasons.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {fallbackReasons.map((reason) => (
+                  <span
+                    key={reason}
+                    className="rounded border border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700"
+                  >
+                    {fallbackReasonLabel(reason)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {degradedSources.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-white/60 px-3 py-2 space-y-2">
+                <p className="text-[10px] uppercase tracking-wider text-amber-500">Affected sources</p>
+                {degradedSources.map((source, index) => (
+                  <div key={`${source.url}-${index}`} className="space-y-0.5">
+                    <p className="text-neutral-800 font-medium">{source.label}</p>
+                    <p className="text-neutral-500">
+                      {source.fallback_reason ? fallbackReasonLabel(source.fallback_reason) : "cached fallback"}
+                    </p>
+                    {source.fallback_detail && (
+                      <p className="whitespace-pre-wrap break-words text-neutral-400">
+                        {source.fallback_detail}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Error ── */}
       {stage.status === "error" && stage.error && (
-        <div className="rounded-lg border border-red-700 bg-red-900/20 px-4 py-3">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-red-500">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-red-600">
             Error
           </p>
-          <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-red-300">
+          <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-red-700">
             {stage.error}
           </p>
         </div>
       )}
 
-      {/* Output block */}
+      {/* ── Raw output ── */}
       {hasOutput && outputJson && (
-        <div className="rounded-lg border border-slate-700 bg-slate-900 overflow-hidden">
-          {/* Collapsible header */}
-          <button
-            type="button"
-            onClick={() => setIsOutputExpanded((v) => !v)}
-            className="
-              flex w-full items-center justify-between px-4 py-2.5
-              border-b border-slate-700 bg-slate-800/80
-              text-xs font-semibold uppercase tracking-wider text-slate-400
-              hover:bg-slate-800 hover:text-slate-200
-              cursor-pointer transition-colors duration-150
-              focus:outline-none focus:ring-1 focus:ring-inset focus:ring-green-500/40
-            "
-            aria-expanded={isOutputExpanded}
-          >
-            <span>Output</span>
-            <span className="flex items-center gap-1.5">
-              <span className="text-slate-500 normal-case tracking-normal font-normal">
-                {outputJson.length > 1024
-                  ? `${(outputJson.length / 1024).toFixed(1)} KB`
-                  : `${outputJson.length} B`}
+        <div className="rounded-xl border border-neutral-200 overflow-hidden">
+          <div className="flex items-center border-b border-neutral-200 bg-neutral-50">
+            <button
+              type="button"
+              onClick={() => setIsOutputExpanded((v) => !v)}
+              className="flex flex-1 items-center justify-between px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 cursor-pointer transition-colors duration-150 focus:outline-none"
+              aria-expanded={isOutputExpanded}
+            >
+              <span>Raw output</span>
+              <span className="flex items-center gap-1.5">
+                <span className="normal-case tracking-normal font-normal text-neutral-400">
+                  {outputJson.length > 1024
+                    ? `${(outputJson.length / 1024).toFixed(1)} KB`
+                    : `${outputJson.length} B`}
+                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${isOutputExpanded ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
               </span>
-              {/* Chevron */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className={`h-3.5 w-3.5 transition-transform duration-200 ${isOutputExpanded ? "rotate-180" : ""}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </span>
-          </button>
-
-          {/* JSON body */}
+            </button>
+            <button
+              type="button"
+              onClick={() => copyOutput(outputJson)}
+              className="px-3 py-2.5 text-[10px] text-neutral-400 hover:text-neutral-700 transition-colors duration-150 cursor-pointer border-l border-neutral-200 hover:bg-neutral-100 focus:outline-none shrink-0"
+              aria-label="Copy raw output"
+              title="Copy to clipboard"
+            >
+              {copied ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              )}
+            </button>
+          </div>
           {isOutputExpanded && (
-            <div className="overflow-x-auto">
-              <pre className="p-4 text-xs leading-relaxed text-slate-300 whitespace-pre">
+            <div className="overflow-x-auto bg-neutral-950">
+              <pre className="p-4 text-xs leading-relaxed text-neutral-300 whitespace-pre">
                 {outputJson}
               </pre>
             </div>
@@ -381,10 +386,10 @@ export default function StageDetail({ stage }: StageDetailProps) {
         </div>
       )}
 
-      {/* Empty state for no output yet */}
+      {/* ── Empty state ── */}
       {!hasOutput && stage.status !== "error" && (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-900/60 px-6 py-8">
-          <p className="text-xs text-slate-500">
+        <div className="flex items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-8">
+          <p className="text-xs text-neutral-400">
             {stage.status === "idle" ? "Stage has not run yet." : "Waiting for output…"}
           </p>
         </div>

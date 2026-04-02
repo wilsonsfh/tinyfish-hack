@@ -25,8 +25,8 @@ function ArrowConnector({ lit }: ArrowProps) {
         className={[
           "h-px w-8 md:w-12 transition-all duration-500",
           lit
-            ? "bg-cyan-300 shadow-[0_0_6px_rgba(103,232,249,0.55)]"
-            : "bg-white/10",
+            ? "bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.4)]"
+            : "bg-neutral-300",
         ].join(" ")}
       />
       {/* Arrowhead */}
@@ -39,12 +39,11 @@ function ArrowConnector({ lit }: ArrowProps) {
       >
         <path
           d="M0 1 L7 5 L0 9"
-          stroke={lit ? "#67e8f9" : "#334155"}
+          stroke={lit ? "#22d3ee" : "#d1d5db"}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           className="transition-all duration-500"
-          style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
         />
       </svg>
     </div>
@@ -65,11 +64,10 @@ function MergeArrow({ lit }: { lit: boolean }) {
         y1="15"
         x2="50"
         y2="30"
-        stroke={lit ? "#67e8f9" : "#334155"}
+        stroke={lit ? "#22d3ee" : "#d1d5db"}
         strokeWidth="1.5"
         strokeLinecap="round"
         className="transition-all duration-500"
-        style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
       />
       {/* Bottom branch line */}
       <line
@@ -77,21 +75,19 @@ function MergeArrow({ lit }: { lit: boolean }) {
         y1="45"
         x2="50"
         y2="30"
-        stroke={lit ? "#67e8f9" : "#334155"}
+        stroke={lit ? "#22d3ee" : "#d1d5db"}
         strokeWidth="1.5"
         strokeLinecap="round"
         className="transition-all duration-500"
-        style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
       />
       {/* Arrowhead */}
       <path
         d="M44 26 L54 30 L44 34"
-        stroke={lit ? "#67e8f9" : "#334155"}
+        stroke={lit ? "#22d3ee" : "#d1d5db"}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="transition-all duration-500"
-        style={lit ? { filter: "drop-shadow(0 0 3px rgba(103,232,249,0.55))" } : {}}
       />
     </svg>
   )
@@ -100,30 +96,21 @@ function MergeArrow({ lit }: { lit: boolean }) {
 // ─── Vertical divider label ───────────────────────────────────────────────────
 function PhaseLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[9px] uppercase tracking-[0.2em] text-slate-600 select-none">
+    <span className="text-[9px] uppercase tracking-[0.2em] text-neutral-400 select-none">
       {children}
     </span>
   )
 }
 
-// ─── Scan-line overlay for the terminal aesthetic ────────────────────────────
+// ─── Scan-line overlay — removed for light theme ─────────────────────────────
 function ScanlineOverlay() {
-  return (
-    <div
-      className="pointer-events-none absolute inset-0 rounded-xl opacity-[0.03]"
-      style={{
-        backgroundImage:
-          "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 3px)",
-      }}
-      aria-hidden="true"
-    />
-  )
+  return null
 }
 
 // ─── Corner-bracket decorations ──────────────────────────────────────────────
 function CornerBrackets() {
   const corner =
-    "absolute w-3 h-3 border-slate-600 opacity-40"
+    "absolute w-3 h-3 border-neutral-300 opacity-60"
   return (
     <>
       <span className={`${corner} top-2 left-2 border-t border-l`} aria-hidden="true" />
@@ -182,17 +169,17 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
           {/* Blinking dot when pipeline is running */}
           {runningCount > 0 && (
             <span
-              className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-ping"
+              className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping"
               aria-hidden="true"
             />
           )}
           {runningCount === 0 && completedCount === totalStages && totalStages > 0 && (
             <span
-              className="inline-block w-2 h-2 rounded-full bg-emerald-400"
+              className="inline-block w-2 h-2 rounded-full bg-emerald-500"
               aria-hidden="true"
             />
           )}
-          <span className="text-xs tracking-widest uppercase text-slate-400">
+          <span className="text-xs tracking-widest uppercase text-neutral-400">
             {runningCount > 0
               ? "pipeline running"
               : completedCount === totalStages && totalStages > 0
@@ -200,7 +187,7 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
               : "pipeline idle"}
           </span>
         </div>
-        <span className="text-xs text-slate-600 tabular-nums">
+        <span className="text-xs text-neutral-500 tabular-nums">
           {completedCount}/{totalStages} stages
         </span>
       </div>
@@ -209,13 +196,13 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
       <div
         className={[
           "relative overflow-hidden rounded-xl border",
-          "bg-slate-900/80 backdrop-blur-sm",
-          "border-slate-700/60",
+          "bg-neutral-50",
+          "border-neutral-200",
           "transition-all duration-300",
           runningCount > 0
-            ? "shadow-[0_0_40px_rgba(34,211,238,0.09)]"
+            ? "shadow-[0_0_40px_rgba(34,211,238,0.15)]"
             : completedCount === totalStages && totalStages > 0
-            ? "shadow-[0_0_40px_rgba(52,211,153,0.08)]"
+            ? "shadow-[0_0_40px_rgba(52,211,153,0.12)]"
             : "shadow-none",
         ].join(" ")}
       >
@@ -224,7 +211,7 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
 
         {/* ── Progress bar (top edge) ─────────────────────────────────────── */}
         <div
-          className="absolute top-0 left-0 h-[2px] bg-slate-800 w-full"
+          className="absolute top-0 left-0 h-[2px] bg-neutral-200 w-full"
           aria-hidden="true"
         >
           <div
@@ -336,17 +323,17 @@ export function Pipeline({ stages, activeStage, onStageClick }: PipelineProps) {
 
         {/* ── Footer bar: legend ─────────────────────────────────────────── */}
         <div
-          className="flex items-center justify-between gap-4 px-5 py-2.5 border-t border-slate-800/80"
+          className="flex items-center justify-between gap-4 px-5 py-2.5 border-t border-neutral-200"
           aria-hidden="true"
         >
           <div className="flex items-center gap-4 flex-wrap">
-            <LegendItem color="bg-slate-600" label="idle" />
+            <LegendItem color="bg-neutral-300" label="idle" />
             <LegendItem color="bg-blue-500 animate-pulse" label="running" />
-            <LegendItem color="bg-emerald-400" label="complete" />
+            <LegendItem color="bg-emerald-500" label="complete" />
             <LegendItem color="bg-red-500" label="error" />
             <LegendItem color="bg-amber-400" label="fallback" />
           </div>
-          <span className="text-[9px] tracking-widest uppercase text-slate-700 hidden sm:block">
+          <span className="text-[9px] tracking-widest uppercase text-neutral-400 hidden sm:block">
             click stage to inspect
           </span>
         </div>
@@ -386,7 +373,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <span className={`w-2 h-2 rounded-full ${color}`} />
-      <span className="text-[9px] tracking-wider text-slate-600">{label}</span>
+      <span className="text-[9px] tracking-wider text-neutral-500">{label}</span>
     </div>
   )
 }

@@ -664,20 +664,38 @@ export default function DiffView({
         >
           <PaneHeader
             title="Suggested Changes"
-            subtitle="Manual review output. Download to inspect as a candidate updated file."
+            subtitle={
+              appliedFindings.length > 0
+                ? "Manual review output. Download to inspect as a candidate updated file."
+                : "No line-level patches in this run — see Findings tab."
+            }
             icon={
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             }
           />
-          <div className="overflow-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-            <div className="min-w-0 py-1">
-              {suggestedLines.map((line) => (
-                <LineRow key={`sugg-${line.lineNumber}`} line={line} onApply={handleApply} />
-              ))}
+          {appliedFindings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-6 text-center gap-3">
+              <svg className="h-8 w-8 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-3-3v6M4 5l16 14" />
+              </svg>
+              <p className="font-mono text-sm text-slate-500">No line-level patches generated</p>
+              <p className="font-mono text-xs text-slate-600 max-w-xs">
+                {findings.length > 0
+                  ? `${findings.length} ${findings.length === 1 ? "finding was" : "findings were"} returned as advisory recommendations. Check the Findings tab for suggested changes.`
+                  : "Run a check to see suggested edits here."}
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="overflow-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+              <div className="min-w-0 py-1">
+                {suggestedLines.map((line) => (
+                  <LineRow key={`sugg-${line.lineNumber}`} line={line} onApply={handleApply} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

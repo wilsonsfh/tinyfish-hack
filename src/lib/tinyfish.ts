@@ -132,6 +132,21 @@ export async function* scrapePageSSE(
 }
 
 /**
+ * Normalizes a rejection reason into a descriptive error string.
+ * Adds a "TinyFish timeout:" prefix for AbortError/TimeoutError so that
+ * classifyTinyFishFallbackReason can correctly categorise them.
+ */
+function normalizeRejectionError(reason: unknown): string {
+  if (reason instanceof Error) {
+    if (reason.name === "TimeoutError" || reason.name === "AbortError") {
+      return `TinyFish timeout: ${reason.message}`;
+    }
+    return reason.message;
+  }
+  return String(reason);
+}
+
+/**
  * Parallel scrape — runs multiple scrapePage calls concurrently.
  * Failed requests are returned as { status: "FAILED" } entries rather than throwing.
  */
@@ -152,7 +167,7 @@ export async function scrapeParallel(
       finished_at: new Date().toISOString(),
       num_of_steps: 0,
       result: null,
-      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      error: normalizeRejectionError(result.reason),
     } satisfies TinyFishResponse;
   });
 }

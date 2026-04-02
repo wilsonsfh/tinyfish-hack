@@ -302,15 +302,16 @@ This section is the literal file-level map of the current repo. It focuses on me
 
 ### UI components
 
-- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/Pipeline.tsx`: stage pipeline visualization
-- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/StageNode.tsx`: one pipeline stage node
-- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/FileUpload.tsx`: config upload and sample loader
-- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/FindingCard.tsx`: finding card with provenance toggle
+- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/Pipeline.tsx`: stage pipeline visualization (light theme)
+- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/StageNode.tsx`: one pipeline stage node (light theme)
+- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/FileUpload.tsx`: config upload and sample loader (light theme)
+- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/FindingCard.tsx`: finding card with provenance toggle (light theme)
+- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/RunSummary.tsx`: natural-language summary tab — headline sentence, impact groups, source quality bar
 - `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/ConfidenceBadge.tsx`: reusable confidence badge
 - `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/ProvenanceChain.tsx`: provenance chain UI
 - `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/DiffView.tsx`: editable diff view plus advisory recommendation view
 - `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/SourcesPanel.tsx`: source transparency table
-- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/StageDetail.tsx`: per-stage inspection panel
+- `/Users/WilsonSoon/Downloads/tinyfish/tinyfish-hack/src/components/StageDetail.tsx`: per-stage inspection panel (light theme, sectioned)
 
 ### library code
 
@@ -358,6 +359,7 @@ These are the main remaining correctness and architecture gaps:
 - TinyFish live timeout is still fixed at 20 seconds
 - there is still no live authoritative response cache
 - `repo-upload` still triggers the existing Turbopack/NFT trace warning
+- TinyFish timeout classification was fixed: `AbortSignal.timeout()` throws a `DOMException` with `name="TimeoutError"` and `message="The operation was aborted."` — the string `"TinyFish timeout:"` is now prepended during normalization in `tinyfish.ts` (`normalizeRejectionError`) and `discover/route.ts` catch blocks so `classifyTinyFishFallbackReason` correctly routes them to `tinyfish_timeout`
 
 ## how to use this document
 

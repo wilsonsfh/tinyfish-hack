@@ -1,9 +1,17 @@
 # DriftCheck
 
 Hackathon project: AI tooling drift detector using TinyFish live scraping + OpenAI GPT-4o.
-**Event:** TinyFish × OpenAI Hackathon, March 28 2026, Singapore, 6 hours. Solo (Wilson). Goal: 1st place.
+**Event:** TinyFish × OpenAI Hackathon, March 28 2026, Singapore, 6 hours. Solo (Wilson).
 
 Current repo scope is the stateless hackathon build. For the next-phase product framing, three-mode architecture, Context7 placement, and storage roadmap, see [`docs/architecture-v2.md`](./docs/architecture-v2.md).
+
+---
+
+## How to Navigate This Repo
+
+1. Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) first — it is the current-state codemap. Use it to find where logic lives before changing anything.
+2. Read this file (`CLAUDE.md`) for product brief, scope constraints, and conventions.
+3. Read [`docs/architecture-v2.md`](./docs/architecture-v2.md) only when the task touches future product direction.
 
 ---
 
@@ -31,7 +39,7 @@ Keyword matching may stay fuzzy, but keep trigger guidance compact. Do not inlin
 
 ---
 
-## Architecture: 5-Stage Pipeline
+## Architecture: 6-Stage Pipeline
 
 ```
 Stage 1: Discovery       — TinyFish scrapes HN front page → GPT-4o extracts entities
@@ -41,6 +49,18 @@ Stage 3: Diff            — GPT-4o compares authoritative findings against user
 Stage 4: Confidence Tier — Each finding gets HIGH/MEDIUM/LOW/CONFLICT + justification
 Stage 5: Output          — Changelog digest + split-pane diff view + mocked Apply button
 ```
+
+Stages 1 and 1b run in parallel. Stage 2 resolves sources in parallel. Stage 3 depends on Stage 2 output.
+
+### Three Entry Modes
+
+| Mode | Input | Output |
+|------|-------|--------|
+| **Quick Check** | Natural-language question | Advisory recommendations (no patch unless config also uploaded) |
+| **Config Diff** | Uploaded/pasted config file | Real split-pane diff view with suggested edits |
+| **Repo Diff** | Local folder or public GitHub URL | Repo-aware recommendations (advisory only, no fake patch) |
+
+All three modes share the same 6-stage pipeline. Mode affects scope inference and output rendering, not the pipeline structure.
 
 ### Source Trust Tiers
 | Source | Tier | Rationale |
@@ -76,39 +96,83 @@ const AUTHORITATIVE_SOURCES = {
 
 ## Key Files
 
+For the full codemap see [`ARCHITECTURE.md`](./ARCHITECTURE.md). Core files:
+
 ```
-src/
-├── app/
-│   ├── page.tsx                    # Main pipeline UI
-│   └── api/
-│       ├── pipeline/route.ts       # Orchestrator — SSE stream, runs all stages
-│       ├── discover/route.ts       # Stage 1: TinyFish HN scrape + GPT-4o entity extraction
-│       ├── skills-diff/route.ts    # Stage 1b: git submodule diff + GPT-4o extraction
-│       ├── resolve/route.ts        # Stage 2: TinyFish authoritative scrape + GPT-4o parse
-│       └── diff/route.ts           # Stage 3: GPT-4o config diff
-├── lib/
-│   ├── tinyfish.ts                 # TinyFish API client
-│   ├── openai.ts                   # GPT-4o client
-│   ├── prompts.ts                  # All GPT-4o prompts as template literals
-│   ├── sources.ts                  # Authoritative source whitelist + skills repos
-│   ├── skills-git.ts               # git submodule fetch + diff extraction
-│   └── types.ts                    # TypeScript types
-├── components/
-│   ├── Pipeline.tsx                # 5-stage pipeline visualization
-│   ├── StageNode.tsx               # idle/running/complete state per stage
-│   ├── DiffView.tsx                # Split-pane diff viewer
-│   ├── FindingCard.tsx             # Finding + confidence badge + provenance
-│   ├── ConfidenceBadge.tsx         # GREEN/AMBER/GRAY/RED-OUTLINE badges
-│   ├── ProvenanceChain.tsx         # Source trail: HN → changelog → config → fix
-│   ├── SourcesPanel.tsx            # All scraped URLs with timestamps
-│   ├── FileUpload.tsx              # Config file upload/paste
-│   └── StageDetail.tsx             # Raw I/O inspector per stage
-└── fixtures/
-    ├── sample-hn-scrape.json       # Cached HN scrape (fallback)
-    ├── sample-openai-changelog.json # Cached changelog scrape (fallback)
-    ├── sample-skills-diff.json     # Cached submodule diffs (fallback)
-    └── sample-config.md            # Golden-path AGENTS.md for demo
+src/app/api/pipeline/route.ts       # Top-level SSE orchestrator — start here for pipeline changes
+src/app/api/discover/route.ts       # Stage 1: noisy discovery
+src/app/api/skills-diff/route.ts    # Stage 1b: git/submodule evidence
+src/app/api/resolve/route.ts        # Stage 2: authoritative resolution
+src/app/api/diff/route.ts           # Stage 3: drift diff
+src/app/api/repo-inventory/route.ts # Repo Diff inventory
+src/app/api/repo-upload/route.ts    # Local folder upload materialization
+src/app/page.tsx                    # Main UI, SSE handling, mode orchestration, client sanitization
+
+src/lib/types.ts                    # All TypeScript types — read before adding new shapes
+src/lib/openai.ts                   # Model calls, validation, feedback loops, finding normalization
+src/lib/prompts.ts                  # All GPT-4o prompts — edit here, not in routes
+src/lib/tinyfish.ts                 # TinyFish client wrapper
+src/lib/fallbacks.ts                # Fallback classification and authoritative change normalization
+src/lib/feedback-loops.ts          # Feedback-loop summary helpers
+src/lib/sources.ts                  # Authoritative source whitelist + skills repos
+src/lib/quick-check.ts              # Scope inference and narrowing for Quick Check mode
+src/lib/repo-diff.ts                # Repo materialization, inventory, subject detection
+src/lib/skills-git.ts               # git diff and submodule evidence extraction
+src/lib/rate-limit.ts               # In-memory rate limiting
+
+scripts/verify-pipeline.mjs        # Pipeline harness verification script
+
+src/fixtures/parsed-authoritative.ts # Deterministic parsed fallback for Stage 2 (no OpenAI dep)
 ```
+
+---
+
+## Harness Engineering Boundaries
+
+The repo has four active harness boundaries. Do not break them when making changes.
+
+| Boundary | What it guards | Key files |
+|----------|---------------|-----------|
+| **Model boundary** | JSON parse + schema validation + one corrective retry before accepting LLM output | `src/lib/openai.ts`, `src/lib/prompts.ts`, `src/lib/types.ts` |
+| **External API** | TinyFish and git calls degrade visibly via fixture fallback; `source: "live"/"cached"/"unavailable"` surfaced in UI | `src/lib/tinyfish.ts`, `src/lib/fallbacks.ts`, route files |
+| **UI boundary** | Page-level sanitization before UI state is set; no raw LLM payload rendered directly | `src/app/page.tsx`, `src/components/FindingCard.tsx`, `src/components/DiffView.tsx` |
+| **Verification** | `lint → build → verify:pipeline` before closing any pipeline-affecting task | `scripts/verify-pipeline.mjs` |
+
+---
+
+## Verification Commands
+
+Run these in order after any pipeline-touching change:
+
+```bash
+npm run lint                 # must pass
+npm run build                # must pass
+npm run verify:pipeline      # run when pipeline behavior changes
+```
+
+Self-correction loop: if a check fails, fix the issue and rerun — do not skip or bypass.
+
+---
+
+## Current Invariants
+
+Rules that must hold when modifying the code:
+
+- The main truth path is TinyFish + OpenAI. Repo diffs are supplementary context.
+- Fallback state (`source: "cached"`) must remain visible in the UI — never silently degrade.
+- `Quick Check` without uploaded config → advisory recommendations only, no patch rendering.
+- `Repo Diff` without uploaded config → advisory only, no fake patch rendering.
+- Only findings with `replacement_text` should modify the suggested config file in diff view.
+- LLM outputs must be validated and normalized server-side before the client renders them.
+
+---
+
+## Current Known Gaps
+
+- Multiple findings on the same line collapse to one applied edit in the patch view.
+- TinyFish live timeout is fixed at 20 seconds (no per-source dynamic timeout).
+- No live authoritative response cache.
+- `repo-upload` route still triggers a Turbopack/NFT trace warning.
 
 ---
 
@@ -179,16 +243,6 @@ Return ONLY valid JSON array of Finding objects.
 
 ---
 
-## Pre-Work Checklist (before hackathon day)
+## Post-Hackathon State
 
-- [ ] Next.js project scaffolded with Tailwind + TypeScript
-- [ ] `src/lib/types.ts` — all TypeScript types defined
-- [ ] `src/lib/prompts.ts` — all 3 GPT-4o prompts written and tested
-- [ ] `src/lib/tinyfish.ts` — TinyFish client with error handling
-- [ ] `src/lib/skills-git.ts` — git diff extraction utility
-- [ ] `src/lib/sources.ts` — authoritative whitelist
-- [ ] `src/fixtures/` — cached JSON for all sources (HN, changelog, skills diff, sample config)
-- [ ] Pipeline UI shell — 5 connected nodes, idle/running/complete states
-- [ ] DiffView, FindingCard, ConfidenceBadge components
-- [ ] Golden-path demo config files (AGENTS.md with outdated patterns)
-- [ ] End-to-end test of prompts against fixture data
+Hackathon completed March 28 2026. The build is functional. All pre-work items were completed during the Codex phase. Subsequent work with Claude Code should focus on iteration, correctness, and addressing the **Current Known Gaps** listed above.

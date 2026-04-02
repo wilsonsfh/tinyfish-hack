@@ -79,13 +79,20 @@ export async function POST(request: Request): Promise<NextResponse> {
         feedbackSummary: summarizeFeedbackLoops([extraction.feedbackLoop]),
       })
     } catch (error) {
+      const isTimeout =
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError")
+      const errorMsg = isTimeout
+        ? `TinyFish timeout: ${error instanceof Error ? error.message : String(error)}`
+        : error instanceof Error ? error.message : String(error)
+
       const fixture = await loadFixture()
       return NextResponse.json({
         entities: fixture.entities,
         source: buildSourceMeta(
           "cached",
-          classifyDiscoveryFallbackReason(error instanceof Error ? error.message : String(error)),
-          error instanceof Error ? error.message : String(error)
+          classifyDiscoveryFallbackReason(errorMsg),
+          errorMsg
         ),
         feedbackSummary: summarizeFeedbackLoops([fixture.feedbackLoop]),
       })

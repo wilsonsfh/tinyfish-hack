@@ -86,7 +86,7 @@ function FallbackDot() {
   return (
     <span
       title="Fallback data used"
-      className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-slate-900 z-10"
+      className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white z-10"
       aria-label="Fallback fixture data used"
     />
   )
@@ -95,47 +95,47 @@ function FallbackDot() {
 const STATUS_CONFIG = {
   idle: {
     icon: <IdleIcon />,
-    iconColor: "text-slate-500",
-    borderColor: "border-white/10",
-    bgColor: "bg-white/[0.03]",
+    iconColor: "text-neutral-400",
+    borderColor: "border-neutral-200",
+    bgColor: "bg-neutral-100/60",
     glowClass: "",
-    labelColor: "text-slate-400",
+    labelColor: "text-neutral-500",
     badgeText: "IDLE",
-    badgeBg: "bg-white/[0.05] text-slate-400",
+    badgeBg: "bg-neutral-100 text-neutral-400",
     ringColor: "",
   },
   running: {
     icon: <SpinnerIcon />,
-    iconColor: "text-blue-400",
+    iconColor: "text-blue-500",
     borderColor: "border-cyan-400/40",
-    bgColor: "bg-cyan-400/8",
-    glowClass: "shadow-[0_0_20px_rgba(34,211,238,0.2)] animate-pulse-glow",
-    labelColor: "text-blue-300",
+    bgColor: "bg-cyan-50",
+    glowClass: "shadow-[0_0_20px_rgba(34,211,238,0.2)]",
+    labelColor: "text-blue-600",
     badgeText: "RUNNING",
-    badgeBg: "bg-cyan-400/12 text-cyan-200",
-    ringColor: "ring-2 ring-cyan-400/18",
+    badgeBg: "bg-cyan-50 text-cyan-700",
+    ringColor: "ring-2 ring-cyan-400/30",
   },
   complete: {
     icon: <CheckIcon />,
-    iconColor: "text-emerald-400",
-    borderColor: "border-emerald-400/35",
-    bgColor: "bg-emerald-400/8",
-    glowClass: "shadow-[0_0_16px_rgba(52,211,153,0.18)]",
-    labelColor: "text-emerald-300",
+    iconColor: "text-emerald-600",
+    borderColor: "border-emerald-400/40",
+    bgColor: "bg-emerald-50",
+    glowClass: "shadow-[0_0_16px_rgba(52,211,153,0.2)]",
+    labelColor: "text-emerald-700",
     badgeText: "DONE",
-    badgeBg: "bg-emerald-400/12 text-emerald-200",
-    ringColor: "ring-1 ring-emerald-500/20",
+    badgeBg: "bg-emerald-50 text-emerald-700",
+    ringColor: "ring-1 ring-emerald-500/25",
   },
   error: {
     icon: <ErrorIcon />,
-    iconColor: "text-red-400",
+    iconColor: "text-red-600",
     borderColor: "border-rose-400/40",
-    bgColor: "bg-rose-400/8",
+    bgColor: "bg-red-50",
     glowClass: "shadow-[0_0_16px_rgba(244,63,94,0.16)]",
-    labelColor: "text-red-300",
+    labelColor: "text-red-700",
     badgeText: "ERROR",
-    badgeBg: "bg-rose-400/12 text-rose-200",
-    ringColor: "ring-1 ring-red-500/20",
+    badgeBg: "bg-red-50 text-red-700",
+    ringColor: "ring-1 ring-red-500/25",
   },
 } as const
 
@@ -161,7 +161,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
         "relative flex flex-col items-center gap-2 w-full",
         "group cursor-pointer focus:outline-none",
         // Focus ring for keyboard nav
-        "focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-lg",
+        "focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white rounded-lg",
       ].join(" ")}
     >
       {/* Fallback indicator dot */}
@@ -180,7 +180,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
             cfg.ringColor,
             // Active indicator: extra ring
             isActive
-              ? "ring-2 ring-offset-2 ring-offset-slate-950 ring-white/14 scale-105"
+              ? "ring-2 ring-offset-2 ring-offset-neutral-50 ring-neutral-900/10 scale-105"
               : "group-hover:scale-105 group-hover:border-opacity-90",
           ].join(" ")}
         >
@@ -216,7 +216,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
 
       {/* Duration chip — only when we have timing data */}
       {duration && stage.status !== "idle" && (
-        <span className="text-[9px] tracking-wide text-slate-500">
+        <span className="text-[9px] tracking-wide text-neutral-500">
           {duration}
         </span>
       )}
@@ -224,7 +224,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
       {/* Error message excerpt */}
       {stage.status === "error" && stage.error && (
         <span
-          className="text-[9px] max-w-[80px] truncate text-center leading-tight text-red-400/80"
+          className="text-[9px] max-w-[80px] truncate text-center leading-tight text-red-600"
           title={stage.error}
         >
           {stage.error.slice(0, 32)}
@@ -235,7 +235,7 @@ export function StageNode({ stage, isActive, onClick }: StageNodeProps) {
       {/* Inspect hint on hover */}
       <span
         className={[
-          "text-[9px] tracking-wide text-slate-600",
+          "text-[9px] tracking-wide text-neutral-400",
           "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
           "absolute -bottom-5 whitespace-nowrap",
         ].join(" ")}

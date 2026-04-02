@@ -4,6 +4,13 @@ import { basename, dirname, join, normalize } from "path"
 import { NextResponse } from "next/server"
 import { acquireRateLimit } from "@/lib/rate-limit"
 
+export const config = {
+  api: {
+    bodyParser: false,
+    responseLimit: false,
+  },
+}
+
 function safeRelativePath(value: string): string {
   const normalized = normalize(value).replace(/^(\.\.(\/|\\|$))+/, "")
   if (!normalized || normalized.startsWith("..")) {
@@ -39,16 +46,27 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     await fs.mkdir(rootDir, { recursive: true })
 
+    // Pre-create all unique directories in one pass before parallel writes
+    const dirs = new Set<string>()
+    const validEntries: Array<{ file: File; targetPath: string }> = []
     for (const entry of fileEntries) {
-      if (!(entry instanceof File)) {
-        continue
-      }
-
+      if (!(entry instanceof File)) continue
       const relativePath = safeRelativePath(entry.webkitRelativePath || entry.name)
       const targetPath = join(rootDir, relativePath)
-      await fs.mkdir(dirname(targetPath), { recursive: true })
-      const buffer = Buffer.from(await entry.arrayBuffer())
-      await fs.writeFile(targetPath, buffer)
+      dirs.add(dirname(targetPath))
+      validEntries.push({ file: entry, targetPath })
+    }
+    await Promise.all([...dirs].map((d) => fs.mkdir(d, { recursive: true })))
+
+    // Write all files in parallel (batched to avoid fd exhaustion)
+    const BATCH = 64
+    for (let i = 0; i < validEntries.length; i += BATCH) {
+      await Promise.all(
+        validEntries.slice(i, i + BATCH).map(async ({ file, targetPath }) => {
+          const buffer = Buffer.from(await file.arrayBuffer())
+          await fs.writeFile(targetPath, buffer)
+        })
+      )
     }
 
     return NextResponse.json({
